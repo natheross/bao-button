@@ -6,6 +6,7 @@ import { otherbutton, otherbuttonRemote } from './src/config/otherbutton.js';
 
 const CONCURRENCY_MIX = 5
 let AUIDO_URL = ""
+let currentPage = 'buttons'
 
 // 全局状态
 const state = {
@@ -895,6 +896,17 @@ function showCdnSelect() {
 
 // 绑定事件
 function bindEvents() {
+    const buttonTab = document.getElementById('buttonTab');
+    const infoTab = document.getElementById('infoTab');
+
+    if (buttonTab) {
+        buttonTab.addEventListener('click', () => setCurrentPage('buttons'));
+    }
+
+    if (infoTab) {
+        infoTab.addEventListener('click', () => setCurrentPage('info'));
+    }
+
     // 随机播放
     const randomPlayBtn = document.getElementById('randomPlay');
     if (randomPlayBtn) {
@@ -962,6 +974,112 @@ function bindEvents() {
 
     }
 
+}
+
+function setCurrentPage(page) {
+    if (page !== 'buttons' && page !== 'info') return;
+    if (page === currentPage) return;
+
+    currentPage = page;
+
+    const isButtonPage = currentPage === 'buttons';
+    const buttonPage = document.getElementById('buttonPage');
+    const infoPage = document.getElementById('infoPage');
+    const topbarControls = document.querySelector('.topbar-controls');
+    const buttonSidebarNav = document.getElementById('sidebarNav');
+    const infoSidebarNav = document.getElementById('infoSidebarNav');
+    const buttonTab = document.getElementById('buttonTab');
+    const infoTab = document.getElementById('infoTab');
+
+    if (buttonPage) buttonPage.hidden = !isButtonPage;
+    if (infoPage) infoPage.hidden = isButtonPage;
+    if (topbarControls) topbarControls.style.display = isButtonPage ? '' : 'none';
+    if (buttonSidebarNav) buttonSidebarNav.hidden = !isButtonPage;
+    if (infoSidebarNav) infoSidebarNav.hidden = isButtonPage;
+
+    if (buttonTab) {
+        buttonTab.classList.toggle('active', isButtonPage);
+        buttonTab.setAttribute('aria-selected', String(isButtonPage));
+    }
+
+    if (infoTab) {
+        infoTab.classList.toggle('active', !isButtonPage);
+        infoTab.setAttribute('aria-selected', String(!isButtonPage));
+    }
+
+    if (isButtonPage) {
+        restartPageAnimation(buttonTab, 'bookmark-enter-from-left');
+        animateButtonPageTitles(buttonPage);
+        prepareSequentialButtonEntry(buttonPage, topbarControls);
+        restartPageAnimation(buttonPage, 'buttons-enter');
+        restartPageAnimation(topbarControls, 'buttons-enter');
+        restartPageAnimation(buttonSidebarNav, 'buttons-enter');
+    } else {
+        restartPageAnimation(infoTab, 'bookmark-enter-from-right');
+    }
+}
+
+function restartPageAnimation(element, className) {
+    if (!element) return;
+    element.classList.remove(className);
+    void element.offsetWidth;
+    element.classList.add(className);
+}
+
+function animateButtonPageTitles(buttonPage) {
+    if (!buttonPage) return;
+
+    const totalDuration = 840;
+    const characterDuration = 170;
+
+    buttonPage.querySelectorAll('.voice-category h2').forEach(title => {
+        const characters = Array.from(title.textContent);
+        const lastStartTime = totalDuration - characterDuration;
+        const delayStep = characters.length > 1
+            ? lastStartTime / (characters.length - 1)
+            : 0;
+
+        title.replaceChildren(...characters.map((character, index) => {
+            const span = document.createElement('span');
+            span.className = 'title-character-enter';
+            span.textContent = character;
+            span.style.setProperty('--character-delay', `${Math.round(index * delayStep)}ms`);
+            span.style.setProperty('--character-duration', `${characterDuration}ms`);
+            return span;
+        }));
+    });
+}
+
+function prepareSequentialButtonEntry(buttonPage, topbarControls) {
+    const totalDuration = 1400;
+    const buttonDuration = 420;
+    const availableDelay = totalDuration - buttonDuration;
+
+    const applyLeftToRightSequence = (elements, fixedDelayStep = null) => {
+        const items = Array.from(elements);
+        const delayStep = fixedDelayStep ?? (items.length > 1
+            ? availableDelay / (items.length - 1)
+            : 0);
+
+        items.forEach((item, index) => {
+            item.style.setProperty('--button-delay', `${Math.round(index * delayStep)}ms`);
+            item.style.setProperty('--button-duration', `${buttonDuration}ms`);
+        });
+    };
+
+    if (buttonPage) {
+        buttonPage.querySelectorAll('.voice-buttons').forEach(group => {
+            applyLeftToRightSequence(group.querySelectorAll('button'));
+        });
+    }
+
+    if (topbarControls) {
+        const topbarButtons = topbarControls.querySelectorAll('button, label');
+        applyLeftToRightSequence(topbarButtons, 160);
+        topbarButtons.forEach(item => {
+            item.style.setProperty('--button-offset', '23px');
+        });
+    }
 }
 
 // 隐藏加载界面，显示主界面

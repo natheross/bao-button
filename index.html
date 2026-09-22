@@ -62,6 +62,8 @@
 
                     <nav class="sidebar-nav" id="sidebarNav">
                     </nav>
+                    <nav class="sidebar-nav" id="infoSidebarNav" aria-label="煲情报目录" hidden>
+                    </nav>
                     <div class="sidebar-logo">
                         <img src="./public/logo.png" alt="logo">
                     </div>
@@ -73,8 +75,15 @@
                     <!-- 顶部固定条 -->
                     <div class="topbar">
 
-                        <div class="topbar-title">
-                            <h1>煲按钮(°ಠ◡ಠ)</h1>
+                        <div class="topbar-tabs" role="tablist" aria-label="一级页面">
+                            <button class="topbar-tab active" id="buttonTab" type="button" role="tab"
+                                aria-selected="true" aria-controls="buttonPage">
+                                煲按钮
+                            </button>
+                            <button class="topbar-tab" id="infoTab" type="button" role="tab"
+                                aria-selected="false" aria-controls="infoPage">
+                                煲情报
+                            </button>
                         </div>
 
                         <!-- ⚠️ controls 内容原样搬到这里 -->
@@ -92,57 +101,64 @@
                     <!-- 右侧可滚动内容区 -->
                     <div class="content" id="contentScroll">
 
-                        <main id="voiceContainer">
-                            <!-- 音频按钮仍然由 JS 动态生成 -->
-                        </main>
+                        <div id="buttonPage">
+                            <main id="voiceContainer">
+                                <!-- 音频按钮仍然由 JS 动态生成 -->
+                            </main>
 
-                        <!-- ⚠️ footer 内容原样搬到这里 -->
-                        <footer class="app-footer">
-                            <div class="footer-content">
-                                <div class="footer-section">
-                                    <p class="footer-text">
-                                        基于
-                                        <a href="https://github.com/yandujun363/audio-button-template"
-                                            target="_blank"
-                                            rel="noopener noreferrer">yandujun363/audio-button-template</a>
-                                        制作
-                                        <br><em>由于样本量过大，垫饭煲仍在筛选动物朋友的声音</em>
-                                        <br><em><del>筛选音频的过程中没有垫饭煲受到伤害
-                                            <br>No Dianfanbaos WereHarmed In The Screening Of These Voices</del></em>
-                                    </p>
+                            <!-- ⚠️ footer 内容原样搬到这里 -->
+                            <footer class="app-footer">
+                                <div class="footer-content">
+                                    <div class="footer-section">
+                                        <p class="footer-text">
+                                            基于
+                                            <a href="https://github.com/yandujun363/audio-button-template"
+                                                target="_blank"
+                                                rel="noopener noreferrer">yandujun363/audio-button-template</a>
+                                            制作
+                                            <br><em>由于样本量过大，垫饭煲仍在筛选动物朋友的声音</em>
+                                            <br><em><del>筛选音频的过程中没有垫饭煲受到伤害
+                                                <br>No Dianfanbaos WereHarmed In The Screening Of These Voices</del></em>
+                                        </p>
+                                    </div>
+
+                                    <div class="footer-section">
+                                        <h3 class="footer-title">使用指南</h3>
+                                        <ul class="guide-list">
+                                            <li>点击按钮即可播放对应音声</li>
+                                            <li>多次点击可以造成相当鬼畜的效果</li>
+                                            <li>开启洗脑循环将会一直播放一个音频</li>
+                                            <li>如果你开启洗脑循环后一直随意点击按钮<del>广域乱射</del>，造成的后果<strong>主煲与网站作者概不负责</strong></li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="footer-section">
+                                        <h3 class="footer-title">相关链接</h3>
+                                        <a href="https://space.bilibili.com/1978636705" target="_blank"
+                                            rel="noopener noreferrer" class="footer-link">
+                                            主播空间
+                                        </a>
+                                        <a href="https://live.bilibili.com/26872684" target="_blank"
+                                            rel="noopener noreferrer" class="footer-link">
+                                            直播间
+                                        </a>
+                                        <a href="https://github.com/Latori12/bao-button" target="_blank"
+                                            rel="noopener noreferrer" class="footer-link">
+                                            项目地址
+                                        </a>
+                                    </div>
                                 </div>
 
-                                <div class="footer-section">
-                                    <h3 class="footer-title">使用指南</h3>
-                                    <ul class="guide-list">
-                                        <li>点击按钮即可播放对应音声</li>
-                                        <li>多次点击可以造成相当鬼畜的效果</li>
-                                        <li>开启洗脑循环将会一直播放一个音频</li>
-                                        <li>如果你开启洗脑循环后一直随意点击按钮<del>广域乱射</del>，造成的后果<strong>主煲与网站作者概不负责</strong></li>
-                                    </ul>
+                                <div class="footer-bottom">
+                                    <p class="copyright">© 2026 煲按钮(°ಠ◡ಠ) - 仅供娱乐使用</p>
                                 </div>
+                            </footer>
+                        </div>
 
-                                <div class="footer-section">
-                                    <h3 class="footer-title">相关链接</h3>
-                                    <a href="https://space.bilibili.com/1978636705" target="_blank"
-                                        rel="noopener noreferrer" class="footer-link">
-                                        主播空间
-                                    </a>
-                                    <a href="https://live.bilibili.com/26872684" target="_blank"
-                                        rel="noopener noreferrer" class="footer-link">
-                                        直播间
-                                    </a>
-                                    <a href="https://github.com/Latori12/bao-button" target="_blank"
-                                        rel="noopener noreferrer" class="footer-link">
-                                        项目地址
-                                    </a>
-                                </div>
-                            </div>
-
-                            <div class="footer-bottom">
-                                <p class="copyright">© 2026 煲按钮(°ಠ◡ಠ) - 仅供娱乐使用</p>
-                            </div>
-                        </footer>
+                        <section id="infoPage" hidden>
+                            <h1>煲情报</h1>
+                            <p>功能建设中</p>
+                        </section>
 
                     </div>
                 </section>
