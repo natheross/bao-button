@@ -1697,3 +1697,59 @@ body::after {
         gap: var(--spacing-sm);
     }
 }
+
+/* ===== 煲情报：目前数据 ===== */
+
+.info-section {
+    padding: 24px;
+}
+
+.info-section h1 {
+    margin-bottom: 20px;
+    color: var(--primary-color);
+    font-size: 30px;
+}
+
+.current-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.current-status-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    padding: 18px 20px;
+
+    background: rgba(255, 255, 255, 0.38);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+
+    box-shadow: var(--shadow-soft);
+}
+
+.current-status-label {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.current-status-value {
+    color: var(--text-primary);
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.current-status-updated {
+    grid-column: 1 / -1;
+
+    margin-top: 8px;
+
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.current-status-error {
+    color: var(--danger-hover);
+}

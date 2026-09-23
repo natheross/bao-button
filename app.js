@@ -3,6 +3,7 @@ import { zhLocale } from './src/locales/zh.js';
 import { voices } from './src/config/voices.js';
 import { CDN_CONFIGS } from './src/config/cdns.js';
 import { otherbutton, otherbuttonRemote } from './src/config/otherbutton.js';
+import { initInfoPage } from './src/ui/infoPage.js';
 
 const CONCURRENCY_MIX = 5
 let AUIDO_URL = ""
@@ -1035,6 +1036,7 @@ function setCurrentPage(page) {
     restartPageAnimation(isButtonPage ? buttonPage : infoPage, 'page-fade-enter');
     restartPageAnimation(isButtonPage ? buttonSidebarNav : infoSidebarNav, 'page-fade-enter');
     if (isButtonPage) restartPageAnimation(topbarControls, 'page-fade-enter');
+    if (!isButtonPage) {initInfoPage();}
 }
 
 function restartPageAnimation(element, className) {
