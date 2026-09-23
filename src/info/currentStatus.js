@@ -34,15 +34,24 @@ function formatTimeAgo(timeString) {
 
 
 async function loadCurrentStatus() {
-    const response = await fetch('./public/data/current.json', {
-        cache: 'no-store'
-    });
+    const response = await fetch(
+        'https://api.wangbaobao.moe/api/current',
+        {
+            cache: 'no-store'
+        }
+    );
 
     if (!response.ok) {
         throw new Error(`目前数据加载失败: ${response.status}`);
     }
 
-    return response.json();
+    const data = await response.json();
+
+    if (!data.ok) {
+        throw new Error(data.error || '目前数据加载失败');
+    }
+
+    return data;
 }
 
 
@@ -71,40 +80,25 @@ export async function renderCurrentStatus() {
 
         container.innerHTML = '';
 
-        const liveText =
-            data.live.status === 'live'
-                ? '直播中'
-                : '未开播';
+        let liveText = '未知';
+
+        if (data.liveStatus === 1) {
+            liveText = '直播中';
+        } else if (data.liveStatus === 0) {
+            liveText = '未开播';
+        } else if (data.liveStatus === 2) {
+            liveText = '轮播';
+        }
 
         container.append(
             createStatusItem('当前状态', liveText),
             createStatusItem(
                 '粉丝数',
-                Number(data.account.followers).toLocaleString()
+                Number(data.followers).toLocaleString()
             ),
             createStatusItem(
                 '舰长数',
-                Number(data.guard.count).toLocaleString()
-            ),
-            createStatusItem(
-                '本月投稿',
-                `${data.upload.countThisMonth} 个`
-            ),
-            createStatusItem(
-                '距上次投稿',
-                formatTimeAgo(data.upload.lastPublishedAt)
-            ),
-            createStatusItem(
-                '本月直播',
-                `${data.live.streamsThisMonth} 次`
-            ),
-            createStatusItem(
-                '距上次开播',
-                formatTimeAgo(data.live.lastStartedAt)
-            ),
-            createStatusItem(
-                '距上次出现',
-                formatTimeAgo(data.activity.lastSeenAt)
+                Number(data.guards).toLocaleString()
             )
         );
 
