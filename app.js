@@ -510,14 +510,14 @@ function renderSidebarNav(tags) {
     nav.innerHTML = '';
 
     tags.forEach((tag, idx) => {
-        const item = document.createElement('div');
+        const item = document.createElement('button');
+        item.type = 'button';
         item.className = 'sidebar-item';
         if (idx === 0) item.classList.add('active');
 
         item.dataset.tag = tag;
 
-        // 显示文字：优先用本地化名字
-        item.textContent = getLocalizedTag(tag);
+        setSidebarItemContent(item, getLocalizedTag(tag));
 
         item.addEventListener('click', () => {
             scrollToSection(tag);
@@ -526,16 +526,37 @@ function renderSidebarNav(tags) {
         nav.appendChild(item);
     });
 
-    const otherItem = document.createElement('div');
+    const otherItem = document.createElement('button');
+    otherItem.type = 'button';
     otherItem.className = 'sidebar-item';
     otherItem.dataset.tag = 'otherbutton';
-    otherItem.textContent = '🔗　其他按钮';
+    setSidebarItemContent(otherItem, '🔗　其他按钮');
 
     otherItem.addEventListener('click', () => {
         scrollToSection('otherbutton');
     });
 
     nav.appendChild(otherItem);
+}
+
+function setSidebarItemContent(item, title) {
+    const divider = title.indexOf('　');
+    if (divider < 0) {
+        item.textContent = title;
+        return;
+    }
+
+    const icon = document.createElement('span');
+    icon.className = 'sidebar-item-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = title.slice(0, divider);
+
+    const label = document.createElement('span');
+    label.className = 'sidebar-item-label';
+    label.textContent = title.slice(divider + 1);
+
+    item.setAttribute('aria-label', label.textContent);
+    item.append(icon, label);
 }
 
 function scrollToSection(tag) {
@@ -546,11 +567,10 @@ function scrollToSection(tag) {
     const section = document.getElementById(sectionId);
     if (!section) return;
 
-    // 让“内容区”滚动，而不是整个页面
-    const topbar = document.querySelector('.topbar');
-    const topbarH = topbar ? topbar.offsetHeight : 0;
-
-    const targetTop = section.offsetTop - topbarH - 28;
+    const targetTop = scroller.scrollTop
+        + section.getBoundingClientRect().top
+        - scroller.getBoundingClientRect().top
+        - 16;
 
     scroller.scrollTo({
         top: Math.max(0, targetTop),
@@ -597,26 +617,22 @@ function bindScrollSpy() {
 
     if (!sections.length || !sidebarItems.length) return;
 
-    const topbar = document.querySelector('.topbar');
-    const topbarH = topbar ? topbar.offsetHeight : 0;
-
     scroller.addEventListener('scroll', () => {
-        const scrollTop = scroller.scrollTop;
-
-        let currentTag = null;
+        const activationLine = scroller.getBoundingClientRect().top + 42;
+        let currentTag = sections[0].dataset.tag;
 
         for (let i = 0; i < sections.length; i++) {
             const section = sections[i];
-            const offsetTop = section.offsetTop - topbarH - 30;
-
-            if (scrollTop >= offsetTop) {
+            if (section.getBoundingClientRect().top <= activationLine) {
                 currentTag = section.dataset.tag;
             } else {
                 break;
             }
         }
 
-        if (!currentTag) return;
+        if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) {
+            currentTag = sections[sections.length - 1].dataset.tag;
+        }
 
         sidebarItems.forEach(item => {
             const isActive = item.dataset.tag === currentTag;
@@ -811,6 +827,7 @@ function playAudioElement(audio, voice, cleanupCallback) {
     const progressMask = document.createElement('span');
     progressMask.className = 'process-mask';
     btn.appendChild(progressMask);
+    btn.classList.add('is-playing');
 
     // 生成唯一标识符
     const audioId = `${voice.path}-${Date.now()}`;
@@ -857,7 +874,9 @@ function cleanupAudio(audioId) {
     const item = state.playingAudios.get(audioId);
     if (item) {
         if (item.cleanup) item.cleanup();
+        const btn = item.progressMask.parentElement;
         item.progressMask.remove();
+        if (btn && !btn.querySelector('.process-mask')) btn.classList.remove('is-playing');
         state.playingAudios.delete(audioId);
     }
 }
@@ -867,7 +886,9 @@ function stopAllVoices() {
     state.playingAudios.forEach(item => {
         item.audio.pause();
         if (item.cleanup) item.cleanup();
+        const btn = item.progressMask.parentElement;
         item.progressMask.remove();
+        if (btn) btn.classList.remove('is-playing');
     });
 
     state.playingAudios.clear();
@@ -943,6 +964,7 @@ function bindEvents() {
     const mainContent = document.getElementById('mainContent');
 
     if (sidebarToggle && mainContent) {
+        const toggleIcon = sidebarToggle.querySelector('.sidebar-toggle-icon');
         sidebarToggle.addEventListener('click', () => {
             if (mainContent.classList.contains('sidebar-animating')) return;
 
@@ -950,23 +972,26 @@ function bindEvents() {
             mainContent.classList.add('sidebar-animating');
 
             const shell = mainContent.querySelector('.app-shell');
-            const finish = () => {
+            const finish = (event) => {
+                if (event && (event.target !== shell || event.propertyName !== 'grid-template-columns')) return;
+                window.clearTimeout(fallback);
                 shell.removeEventListener('transitionend', finish);
                 mainContent.classList.remove('sidebar-animating');
                 mainContent.classList.remove('sidebar-collapsing');
                 mainContent.classList.remove('sidebar-expanding');
             };
 
-            shell.addEventListener('transitionend', finish, { once: true });
+            shell.addEventListener('transitionend', finish);
+            const fallback = window.setTimeout(finish, 350);
 
             if (!isCollapsed) {
                 // 展开 -> 收起
-                sidebarToggle.textContent = '☰';
+                toggleIcon.textContent = '☰';
                 mainContent.classList.add('sidebar-collapsing');
                 mainContent.classList.add('sidebar-collapsed');
             } else {
                 // 收起 -> 展开
-                sidebarToggle.textContent = '❮';
+                toggleIcon.textContent = '❮';
                 mainContent.classList.add('sidebar-expanding');
                 mainContent.classList.remove('sidebar-collapsed');
             }
@@ -1007,16 +1032,9 @@ function setCurrentPage(page) {
         infoTab.setAttribute('aria-selected', String(!isButtonPage));
     }
 
-    if (isButtonPage) {
-        restartPageAnimation(buttonTab, 'bookmark-enter-from-left');
-        animateButtonPageTitles(buttonPage);
-        prepareSequentialButtonEntry(buttonPage, topbarControls);
-        restartPageAnimation(buttonPage, 'buttons-enter');
-        restartPageAnimation(topbarControls, 'buttons-enter');
-        restartPageAnimation(buttonSidebarNav, 'buttons-enter');
-    } else {
-        restartPageAnimation(infoTab, 'bookmark-enter-from-right');
-    }
+    restartPageAnimation(isButtonPage ? buttonPage : infoPage, 'page-fade-enter');
+    restartPageAnimation(isButtonPage ? buttonSidebarNav : infoSidebarNav, 'page-fade-enter');
+    if (isButtonPage) restartPageAnimation(topbarControls, 'page-fade-enter');
 }
 
 function restartPageAnimation(element, className) {
@@ -1024,62 +1042,6 @@ function restartPageAnimation(element, className) {
     element.classList.remove(className);
     void element.offsetWidth;
     element.classList.add(className);
-}
-
-function animateButtonPageTitles(buttonPage) {
-    if (!buttonPage) return;
-
-    const totalDuration = 840;
-    const characterDuration = 170;
-
-    buttonPage.querySelectorAll('.voice-category h2').forEach(title => {
-        const characters = Array.from(title.textContent);
-        const lastStartTime = totalDuration - characterDuration;
-        const delayStep = characters.length > 1
-            ? lastStartTime / (characters.length - 1)
-            : 0;
-
-        title.replaceChildren(...characters.map((character, index) => {
-            const span = document.createElement('span');
-            span.className = 'title-character-enter';
-            span.textContent = character;
-            span.style.setProperty('--character-delay', `${Math.round(index * delayStep)}ms`);
-            span.style.setProperty('--character-duration', `${characterDuration}ms`);
-            return span;
-        }));
-    });
-}
-
-function prepareSequentialButtonEntry(buttonPage, topbarControls) {
-    const totalDuration = 1400;
-    const buttonDuration = 420;
-    const availableDelay = totalDuration - buttonDuration;
-
-    const applyLeftToRightSequence = (elements, fixedDelayStep = null) => {
-        const items = Array.from(elements);
-        const delayStep = fixedDelayStep ?? (items.length > 1
-            ? availableDelay / (items.length - 1)
-            : 0);
-
-        items.forEach((item, index) => {
-            item.style.setProperty('--button-delay', `${Math.round(index * delayStep)}ms`);
-            item.style.setProperty('--button-duration', `${buttonDuration}ms`);
-        });
-    };
-
-    if (buttonPage) {
-        buttonPage.querySelectorAll('.voice-buttons').forEach(group => {
-            applyLeftToRightSequence(group.querySelectorAll('button'));
-        });
-    }
-
-    if (topbarControls) {
-        const topbarButtons = topbarControls.querySelectorAll('button, label');
-        applyLeftToRightSequence(topbarButtons, 160);
-        topbarButtons.forEach(item => {
-            item.style.setProperty('--button-offset', '23px');
-        });
-    }
 }
 
 // 隐藏加载界面，显示主界面

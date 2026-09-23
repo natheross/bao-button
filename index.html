@@ -52,12 +52,32 @@
     <div id="mainContent" class="main-content" style="display: none;">
 
         <div class="app-frame">
+            <div class="app-header">
+                <div class="sidebar-clock" aria-label="当前本地日期和时间">
+                    <time class="sidebar-clock-time" id="sidebarClockTime"></time>
+                    <span class="sidebar-clock-date" id="sidebarClockDate"></span>
+                </div>
+                <div class="topbar">
+                    <div class="topbar-tabs" role="tablist" aria-label="一级页面">
+                        <button class="topbar-tab active" id="buttonTab" type="button" role="tab"
+                            aria-selected="true" aria-controls="buttonPage">煲按钮</button>
+                        <button class="topbar-tab" id="infoTab" type="button" role="tab"
+                            aria-selected="false" aria-controls="infoPage">煲情报</button>
+                    </div>
+                    <div class="topbar-controls controls">
+                        <button id="randomPlay">随机播放</button>
+                        <button id="stopAll">停止所有</button>
+                        <label><input type="checkbox" id="loopMode"> 洗脑循环</label>
+                        <button id="changeCdn" class="cdn-change-btn">更换音频源</button>
+                    </div>
+                </div>
+            </div>
             <div class="app-shell">
 
                 <!-- 左侧固定栏 -->
                 <aside class="sidebar">
                     <button class="sidebar-toggle" id="sidebarToggle" aria-label="收起/展开侧边栏">
-                        ❮
+                        <span class="sidebar-toggle-icon" aria-hidden="true">❮</span>
                     </button>
 
                     <nav class="sidebar-nav" id="sidebarNav">
@@ -71,33 +91,6 @@
 
                 <!-- 右侧主区域 -->
                 <section class="main-area">
-
-                    <!-- 顶部固定条 -->
-                    <div class="topbar">
-
-                        <div class="topbar-tabs" role="tablist" aria-label="一级页面">
-                            <button class="topbar-tab active" id="buttonTab" type="button" role="tab"
-                                aria-selected="true" aria-controls="buttonPage">
-                                煲按钮
-                            </button>
-                            <button class="topbar-tab" id="infoTab" type="button" role="tab"
-                                aria-selected="false" aria-controls="infoPage">
-                                煲情报
-                            </button>
-                        </div>
-
-                        <!-- ⚠️ controls 内容原样搬到这里 -->
-                        <div class="topbar-controls controls">
-                            <button id="randomPlay">随机播放</button>
-                            <button id="stopAll">停止所有</button>
-                            <label>
-                                <input type="checkbox" id="loopMode"> 洗脑循环
-                            </label>
-                            <button id="changeCdn" class="cdn-change-btn">更换音频源</button>
-                        </div>
-
-                    </div>
-
                     <!-- 右侧可滚动内容区 -->
                     <div class="content" id="contentScroll">
 
@@ -170,6 +163,7 @@
 
     <!-- 修改为模块化加载 -->
     <script type="module" src="app.js"></script>
+    <script type="module" src="src/ui/sidebarClock.js"></script>
 
 </body>
 
