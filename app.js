@@ -3,7 +3,8 @@ import { zhLocale } from './src/locales/zh.js';
 import { voices } from './src/config/voices.js';
 import { CDN_CONFIGS } from './src/config/cdns.js';
 import { otherbutton, otherbuttonRemote } from './src/config/otherbutton.js';
-import { initInfoPage } from './src/ui/infoPage.js';
+import { initInfoPage, setInfoPageActive } from './src/ui/infoPage.js';
+import { safeExternalUrl } from './src/ui/externalLinks.js';
 
 const CONCURRENCY_MIX = 5
 let AUIDO_URL = ""
@@ -153,21 +154,28 @@ function renderCdnOptions() {
     const container = document.getElementById('cdnOptions');
     if (!container) return;
 
-    container.innerHTML = '';
+    container.replaceChildren();
 
     state.availableCdns.forEach(cdn => {
         const optionElement = document.createElement('div');
         optionElement.className = 'cdn-option';
         optionElement.dataset.cdnId = cdn.id;
 
-        optionElement.innerHTML = `
-            <div class="cdn-option-header">
-                <h3>${cdn.name}</h3>
-                <span class="cdn-priority">优先级: ${cdn.priority}</span>
-            </div>
-            <div class="cdn-option-url">${cdn.url}</div>
-            <div class="cdn-option-desc">${cdn.description}</div>
-        `;
+        const header = document.createElement('div');
+        header.className = 'cdn-option-header';
+        const name = document.createElement('h3');
+        name.textContent = cdn.name;
+        const priority = document.createElement('span');
+        priority.className = 'cdn-priority';
+        priority.textContent = `优先级: ${cdn.priority}`;
+        header.append(name, priority);
+        const url = document.createElement('div');
+        url.className = 'cdn-option-url';
+        url.textContent = cdn.url;
+        const description = document.createElement('div');
+        description.className = 'cdn-option-desc';
+        description.textContent = cdn.description;
+        optionElement.append(header, url, description);
 
         optionElement.addEventListener('click', () => {
             selectCdn(cdn.id);
@@ -444,7 +452,11 @@ function renderVoiceButtons() {
 
         // 渲染分类标题
         const tagName = getLocalizedTag(tag);
-        categoryElement.innerHTML = `<h2>${tagName}</h2><div class="voice-buttons"></div>`;
+        const heading = document.createElement('h2');
+        heading.textContent = tagName;
+        const buttons = document.createElement('div');
+        buttons.className = 'voice-buttons';
+        categoryElement.append(heading, buttons);
 
         // 渲染按钮
         const buttonsContainer = categoryElement.querySelector('.voice-buttons');
@@ -480,24 +492,24 @@ function createVoiceButton(voice) {
     wrapper.dataset.path = voice.path;
 
     const title = getLocalizedVoiceTitle(voice);
-    let buttonHtml = '';
-
+    const button = document.createElement('button');
     // 如果标题过长，添加tooltip
     if (title.length > 15) {
-        buttonHtml = `
-            <div class="tooltip">
-                <button>${title.substring(0, 15)}...</button>
-                <span class="tooltip-text">${title}</span>
-            </div>
-        `;
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        button.textContent = `${title.substring(0, 15)}...`;
+        const fullTitle = document.createElement('span');
+        fullTitle.className = 'tooltip-text';
+        fullTitle.textContent = title;
+        tooltip.append(button, fullTitle);
+        wrapper.appendChild(tooltip);
     } else {
-        buttonHtml = `<button>${title}</button>`;
+        button.textContent = title;
+        wrapper.appendChild(button);
     }
 
-    wrapper.innerHTML = buttonHtml;
-
     // 添加点击事件
-    wrapper.querySelector('button').addEventListener('click', () => {
+    button.addEventListener('click', () => {
         playVoice(voice);
     });
 
@@ -644,15 +656,13 @@ function bindScrollSpy() {
 }
 
 function normalizeOtherButtonUrl(url) {
-    try {
-        const parsed = new URL(url);
-        parsed.hash = '';
-        parsed.search = '';
-        parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
-        return parsed.toString().replace(/\/$/, '');
-    } catch (error) {
-        return String(url || '').trim().replace(/\/$/, '');
-    }
+    const safeUrl = safeExternalUrl(url);
+    if (!safeUrl) return null;
+    const parsed = new URL(safeUrl);
+    parsed.hash = '';
+    parsed.search = '';
+    parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+    return parsed.toString().replace(/\/$/, '');
 }
 
 function buildOtherButtonRemoteUrl() {
@@ -735,6 +745,8 @@ function renderOtherButtonSection() {
 
     btnBox.innerHTML = '';
     state.otherButtons.forEach(item => {
+        const safeUrl = safeExternalUrl(item.url);
+        if (!safeUrl) return;
         const wrapper = document.createElement('div');
         wrapper.className = 'haruka-button';
 
@@ -750,7 +762,7 @@ function renderOtherButtonSection() {
         }
 
         btn.addEventListener('click', () => {
-            window.open(item.url, '_blank');
+            window.open(safeUrl, '_blank', 'noopener,noreferrer');
         });
 
         wrapper.appendChild(btn);
@@ -1036,7 +1048,8 @@ function setCurrentPage(page) {
     restartPageAnimation(isButtonPage ? buttonPage : infoPage, 'page-fade-enter');
     restartPageAnimation(isButtonPage ? buttonSidebarNav : infoSidebarNav, 'page-fade-enter');
     if (isButtonPage) restartPageAnimation(topbarControls, 'page-fade-enter');
-    if (!isButtonPage) {initInfoPage();}
+    if (!isButtonPage) initInfoPage();
+    setInfoPageActive(!isButtonPage);
 }
 
 function restartPageAnimation(element, className) {

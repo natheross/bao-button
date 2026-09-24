@@ -149,18 +149,54 @@
                         </div>
 
                         <section id="infoPage" hidden>
+                            <div class="info-overview">
+                                <section id="currentStatusSection" class="info-section">
+                                    <h1>目前数据</h1>
+                                    <div id="currentStatusContent" class="current-status-grid">
+                                    </div>
+                                </section>
 
-                            <section
-                                id="currentStatusSection"
-                                class="info-section"
-                            >
-                                <h1>目前数据</h1>
+                                <div class="info-overview-side">
+                                    <section id="edSection" class="info-section">
+                                        <h1>ED 记录</h1>
+                                        <div class="ed-filters" role="search" aria-label="筛选 ED 记录">
+                                            <label>日期
+                                                <input id="edDateFilter" type="search" inputmode="numeric"
+                                                    list="edDateOptions" placeholder="输入日期数字">
+                                                <datalist id="edDateOptions"></datalist>
+                                            </label>
+                                            <label>歌名或歌手
+                                                <input id="edKeywordFilter" type="search" placeholder="输入关键字">
+                                            </label>
+                                            <button id="edClearFilters" class="info-refresh" type="button">清除筛选</button>
+                                        </div>
+                                        <div id="edContent" class="info-cards ed-results" role="region"
+                                            aria-label="ED 查询结果" tabindex="0"></div>
+                                    </section>
 
-                                <div
-                                    id="currentStatusContent"
-                                    class="current-status-grid"
-                                >
+                                    <section id="memeSection" class="info-section">
+                                        <button id="memeExpand" class="meme-capsule" type="button"
+                                            aria-expanded="false" aria-controls="memeContent"
+                                            aria-label="展开表情包分享库">表情包分享库
+                                            <span class="meme-capsule-icon" aria-hidden="true">
+                                                <span class="meme-capsule-lines"><span></span><span></span><span></span></span>
+                                                <span class="meme-capsule-arrow"></span>
+                                            </span>
+                                        </button>
+                                    </section>
                                 </div>
+                                <div id="memeContent" class="meme-expanded-content"></div>
+                            </div>
+
+                            <section id="scSection" class="info-section">
+                                <h1>番茄炒蛋</h1>
+                                <div id="scContent" class="info-cards"></div>
+                            </section>
+
+                            <section id="predictionSection" class="info-section">
+                                <h1>宝煲行为学</h1>
+                                <p class="prediction-disclaimer">图一乐预测，饼学大厦唯一真理是自由的宝煲不可预测</p>
+                                <div id="predictionContent" class="info-cards"></div>
                             </section>
 
                         </section>

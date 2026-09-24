@@ -1,0 +1,22 @@
+[
+  {
+    "file": "1.jpg",
+    "title": "表情包 1",
+    "thumbnail": "1.jpg.webp"
+  },
+  {
+    "file": "2.jpg",
+    "title": "表情包 2",
+    "thumbnail": "2.jpg.webp"
+  },
+  {
+    "file": "3.jpg",
+    "title": "表情包 3",
+    "thumbnail": "3.jpg.webp"
+  },
+  {
+    "file": "4.jpg",
+    "title": "表情包 4",
+    "thumbnail": "4.jpg.webp"
+  }
+]

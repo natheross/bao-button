@@ -2,16 +2,18 @@ const timeElement = document.getElementById('sidebarClockTime');
 const dateElement = document.getElementById('sidebarClockDate');
 
 if (timeElement && dateElement) {
-    const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+    const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
+        timeZone: 'Asia/Shanghai',
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
         hour12: false
     });
-    const dateFormatter = new Intl.DateTimeFormat('en-GB', {
-        day: 'numeric',
+    const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
         month: 'long',
-        year: 'numeric'
+        day: 'numeric'
     });
 
     function updateClock() {

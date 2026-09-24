@@ -1702,6 +1702,7 @@ body::after {
 
 .info-section {
     padding: 24px;
+    scroll-margin-top: 24px;
 }
 
 .info-section h1 {
@@ -1710,11 +1711,59 @@ body::after {
     font-size: 30px;
 }
 
-.current-status-grid {
+.info-overview {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+    align-items: start;
     gap: 16px;
 }
+
+.info-overview-side {
+    min-width: 0;
+}
+
+.meme-expanded-content {
+    grid-column: 1 / -1;
+    min-width: 0;
+    padding: 0 24px 24px;
+}
+
+.meme-expanded-content:empty {
+    display: none;
+}
+
+@media (max-width: 1100px) {
+    .info-overview {
+        grid-template-columns: 1fr;
+    }
+}
+
+.current-status-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+        "followers guards status"
+        "streams last-started last-seen"
+        "uploads golden last-seen"
+        "updated updated updated";
+    grid-template-rows: auto minmax(118px, auto) minmax(118px, auto) auto;
+    gap: 16px;
+}
+
+.current-status-grid--loading,
+.current-status-grid--offline {
+    display: block;
+}
+
+.current-status-item--followers { grid-area: followers; }
+.current-status-item--guards { grid-area: guards; }
+.current-status-item--status { grid-area: status; }
+.current-status-item--streams { grid-area: streams; }
+.current-status-item--last-started { grid-area: last-started; }
+.current-status-item--last-seen { grid-area: last-seen; }
+.current-status-item--uploads { grid-area: uploads; }
+.current-status-item--golden { grid-area: golden; }
+.current-status-item--offline { grid-column: 1 / -1; }
 
 .current-status-item {
     display: flex;
@@ -1728,6 +1777,34 @@ body::after {
     border-radius: 18px;
 
     box-shadow: var(--shadow-soft);
+    min-width: 0;
+}
+
+.current-status-item--followers,
+.current-status-item--guards,
+.current-status-item--status {
+    padding: 4px 6px 14px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.current-status-item--followers .current-status-label,
+.current-status-item--guards .current-status-label,
+.current-status-item--status .current-status-label {
+    padding-bottom: 7px;
+    border-bottom: 2px solid var(--primary-color);
+    font-size: 19px;
+    font-weight: 600;
+}
+
+.current-status-item--last-seen {
+    justify-content: flex-start;
+}
+
+.current-status-item--last-seen .current-status-value {
+    line-height: 1.5;
 }
 
 .current-status-label {
@@ -1742,7 +1819,7 @@ body::after {
 }
 
 .current-status-updated {
-    grid-column: 1 / -1;
+    grid-area: updated;
 
     margin-top: 8px;
 
@@ -1750,6 +1827,412 @@ body::after {
     font-size: 13px;
 }
 
+@media (max-width: 760px) {
+    .current-status-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-areas:
+            "followers guards"
+            "status status"
+            "streams last-started"
+            "last-seen last-seen"
+            "uploads golden"
+            "updated updated";
+        grid-template-rows: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .current-status-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "followers" "guards" "status" "streams" "last-started"
+            "last-seen" "uploads" "golden" "updated";
+    }
+}
+
 .current-status-error {
     color: var(--danger-hover);
+}
+
+/* 滚动到栏目附近时读取数据；表情包由展开按钮单独加载 */
+
+.info-cards {
+    display: grid;
+    gap: 16px;
+}
+
+.info-card,
+.prediction-row {
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.38);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    box-shadow: var(--shadow-soft);
+}
+
+.info-card h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+}
+
+.info-card p {
+    margin: 0;
+}
+
+.ed-results {
+    grid-auto-rows: 72px;
+    min-height: 232px;
+    max-height: 232px;
+    gap: 8px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.ed-card {
+    min-width: 0;
+    padding: 9px 14px;
+    overflow: hidden;
+}
+
+.ed-card h2,
+.ed-card p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ed-card h2 {
+    margin-bottom: 3px;
+    font-size: 16px;
+}
+
+.ed-card p {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.meme-capsule {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 16px 22px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: var(--shadow-soft);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 20px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.meme-capsule-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 24px;
+    margin-left: auto;
+    color: rgba(81, 111, 129, 0.68);
+}
+
+.meme-capsule-lines {
+    display: grid;
+    gap: 3px;
+}
+
+.meme-capsule-lines span {
+    display: block;
+    width: 16px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+}
+
+.meme-capsule-arrow {
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg) translate(-1px, -1px);
+    transition: transform 0.2s ease;
+}
+
+.meme-capsule[aria-expanded="true"] .meme-capsule-arrow {
+    transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.info-refresh {
+    margin-bottom: 16px;
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.5);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.info-note {
+    color: var(--text-secondary);
+}
+
+.info-subheading {
+    margin: 24px 0 12px;
+    color: var(--text-primary);
+    font-size: 20px;
+}
+
+.prediction-disclaimer {
+    margin: 0 0 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.ed-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.ed-filters label {
+    display: grid;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.ed-filters input,
+.ed-filters select {
+    min-height: 38px;
+    padding: 7px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.65);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.ed-filters .info-refresh {
+    margin-bottom: 0;
+}
+
+.prediction-list {
+    display: grid;
+    gap: 8px;
+}
+
+.prediction-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.prediction-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.prediction-panel {
+    min-width: 0;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.38);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    box-shadow: var(--shadow-soft);
+}
+
+.prediction-panel .info-subheading {
+    margin-top: 0;
+}
+
+.prediction-chart {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.prediction-gridline {
+    stroke: rgba(70, 102, 127, 0.22);
+    stroke-width: 1;
+}
+
+.prediction-axis-label {
+    fill: var(--text-secondary);
+    font-size: 13px;
+}
+
+.prediction-band-medium {
+    fill: rgba(241, 170, 62, 0.22);
+}
+
+.prediction-band-high {
+    fill: rgba(222, 95, 107, 0.26);
+}
+
+.prediction-line {
+    fill: none;
+    stroke: #2e668d;
+    stroke-width: 3;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.prediction-dot {
+    fill: #2e668d;
+}
+
+.prediction-legend {
+    margin: 8px 0;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+@media (max-width: 900px) {
+    .prediction-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.meme-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.meme-card {
+    margin: 0;
+    padding: 12px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.38);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    box-shadow: var(--shadow-soft);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.meme-card img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+}
+
+.meme-caption {
+    display: block;
+    margin-top: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.meme-more {
+    display: block;
+    margin: 20px auto 8px;
+}
+
+.meme-more[hidden] {
+    display: none;
+}
+
+.meme-count {
+    text-align: center;
+}
+
+body.meme-lightbox-open {
+    overflow: hidden;
+}
+
+.meme-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    background: rgba(15, 20, 30, 0.92);
+    color: #fff;
+}
+
+.meme-lightbox button,
+.meme-lightbox-save {
+    border: 0;
+    border-radius: 10px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+}
+
+.meme-lightbox-close {
+    align-self: flex-end;
+}
+
+.meme-lightbox-stage {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+}
+
+.meme-lightbox-stage button {
+    font-size: 30px;
+}
+
+.meme-lightbox-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: calc(100vh - 130px);
+    object-fit: contain;
+}
+
+.meme-lightbox-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 12px;
+}
+
+.meme-lightbox-save {
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+@media (max-width: 1200px) {
+    .meme-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .meme-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .meme-lightbox {
+        padding: 10px;
+    }
+
+    .meme-lightbox-stage {
+        gap: 4px;
+    }
+
+    .meme-lightbox-stage button {
+        padding: 6px;
+    }
 }
