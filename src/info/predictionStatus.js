@@ -1,4 +1,4 @@
-import { infoApiUrl } from './api.js';
+import { infoApiUrl, fetchJson } from './api.js';
 
 const PREDICTION_URL = infoApiUrl('/api/prediction');
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -110,9 +110,7 @@ export async function renderPrediction() {
     if (!container) return;
     container.textContent = '正在读取预测...';
     try {
-        const response = await fetch(PREDICTION_URL, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`预测 HTTP ${response.status}`);
-        const data = await response.json();
+        const data = await fetchJson(PREDICTION_URL, '预测');
         if (!data.ok || !Array.isArray(data.forecast?.points)) {
             throw new Error('预测数据格式错误');
         }
@@ -129,7 +127,10 @@ export async function renderPrediction() {
         const chartHeading = document.createElement('h2');
         chartHeading.className = 'info-subheading';
         chartHeading.textContent = '未来两小时内开播概率';
-        chartPanel.append(chartHeading, predictionChart(points, levels));
+        const chartNote = document.createElement('p');
+        chartNote.className = 'prediction-chart-note';
+        chartNote.textContent = '节假日附近等宝煲空闲时间陡增的情况会出现较大偏差';
+        chartPanel.append(chartHeading, predictionChart(points, levels), chartNote);
         layout.appendChild(chartPanel);
         if (Array.isArray(data.weeklyPatterns?.patterns) && data.weeklyPatterns.patterns.length) {
             const historyPanel = document.createElement('div');
@@ -160,8 +161,10 @@ export async function renderPrediction() {
             layout.appendChild(historyPanel);
         }
         container.replaceChildren(layout);
+        return true;
     } catch (error) {
         console.error(error);
         container.textContent = '预测暂时不可用';
+        return false;
     }
 }

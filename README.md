@@ -128,11 +128,10 @@ export const CDN_CONFIGS = [
 
 ```css
 :root {
-    --primary-color: #7aacdd;      /* 主色调 */
-    --bg-color: #f5f5f5;           /* 背景色 */
-    --card-bg: #ffffff;            /* 卡片背景 */
+    --primary-soft-blue: #7aacdd;  /* 主色调 */
+    --surface-background: #f5f5f5; /* 背景色 */
     --text-primary: #333333;       /* 主要文字颜色 */
-    --border-radius: 8px;          /* 圆角大小 */
+    --button-radius: 8px;          /* 按钮圆角大小 */
     /* ... 更多变量 */
 }
 ```

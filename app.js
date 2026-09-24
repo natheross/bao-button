@@ -5,23 +5,21 @@ import { CDN_CONFIGS } from './src/config/cdns.js';
 import { otherbutton, otherbuttonRemote } from './src/config/otherbutton.js';
 import { initInfoPage, setInfoPageActive } from './src/ui/infoPage.js';
 import { safeExternalUrl } from './src/ui/externalLinks.js';
+import { getAudioFromCache, saveAudioToCache, cleanupOldCache,
+    getSelectedCdn, saveSelectedCdn } from './src/audio/storage.js';
+import { preloadInBatches } from './src/audio/preload.js';
 
-const CONCURRENCY_MIX = 5
-let AUIDO_URL = ""
-let currentPage = 'buttons'
+let audioBaseUrl = '';
+let currentPage = 'buttons';
+let eventsBound = false;
+let unbindScrollSpy = null;
 
 // 全局状态
 const state = {
-    currentLang: 'zh',
     isLoopMode: false,
     playingAudios: new Map(), // 存储正在播放的音频及其循环状态
     audioCache: new Map(), // 内存缓存已加载的音频Blob
     voices: [],
-    locales: {
-        zh: zhLocale,
-        en: zhLocale, // 暂时使用中文，可后续添加英文
-        ja: zhLocale  // 暂时使用中文，可后续添加日文
-    },
     totalToLoad: 0,
     loadedCount: 0,
     otherButtons: otherbutton,
@@ -30,124 +28,6 @@ const state = {
     isSingleCdnMode: CDN_CONFIGS && CDN_CONFIGS.length === 1, // 判断是否单CDN模式
     isLocalMode: !CDN_CONFIGS || CDN_CONFIGS.length === 0 // 判断是否本地模式
 };
-
-// IndexedDB数据库配置
-const DB_NAME = 'MaiButtonDB';
-const DB_VERSION = 2; // 更新版本号以支持CDN存储
-const STORE_NAME = 'audioCache';
-const CDN_STORE_NAME = 'cdnSettings'; // 新增：CDN设置存储
-
-// 初始化IndexedDB
-async function initDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-
-            // 创建音频缓存存储
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME, { keyPath: 'path' });
-            }
-
-            // 仅在非本地模式下创建CDN设置存储
-            if (!state.isLocalMode && !db.objectStoreNames.contains(CDN_STORE_NAME)) {
-                const cdnStore = db.createObjectStore(CDN_STORE_NAME, { keyPath: 'id' });
-                cdnStore.createIndex('selected', 'selected', { unique: false });
-            }
-        };
-    });
-}
-
-// 保存选中的CDN到IndexedDB
-async function saveSelectedCdn(cdnId) {
-    // 本地模式不需要保存CDN设置
-    if (state.isLocalMode) return Promise.resolve(null);
-
-    try {
-        const db = await initDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([CDN_STORE_NAME], 'readwrite');
-            const store = transaction.objectStore(CDN_STORE_NAME);
-
-            // 先获取所有记录
-            const getAllRequest = store.getAll();
-
-            getAllRequest.onsuccess = () => {
-                const records = getAllRequest.result;
-
-                // 清除所有选中状态
-                const updatePromises = records.map(record => {
-                    if (record.selected) {
-                        record.selected = false;
-                        return store.put(record);
-                    }
-                    return null;
-                }).filter(p => p !== null);
-
-                // 等待所有更新完成
-                Promise.all(updatePromises.map(p =>
-                    new Promise((res, rej) => {
-                        p.onsuccess = res;
-                        p.onerror = rej;
-                    })
-                )).then(() => {
-                    // 保存新的选中状态
-                    const cdn = state.availableCdns.find(c => c.id === cdnId);
-                    if (cdn) {
-                        const cdnData = {
-                            id: cdn.id,
-                            url: cdn.url,
-                            name: cdn.name,
-                            selected: true,
-                            timestamp: Date.now()
-                        };
-                        const request = store.put(cdnData);
-                        request.onsuccess = () => resolve(cdnData);
-                        request.onerror = () => reject(request.error);
-                    } else {
-                        resolve(null);
-                    }
-                });
-            };
-
-            getAllRequest.onerror = () => reject(getAllRequest.error);
-        });
-    } catch (error) {
-        console.warn('保存CDN设置失败:', error);
-        return null;
-    }
-}
-
-// 从IndexedDB获取选中的CDN
-async function getSelectedCdn() {
-    // 本地模式不需要获取CDN设置
-    if (state.isLocalMode) return Promise.resolve(null);
-
-    try {
-        const db = await initDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([CDN_STORE_NAME], 'readonly');
-            const store = transaction.objectStore(CDN_STORE_NAME);
-
-            // 获取所有记录，然后在内存中筛选
-            const request = store.getAll();
-
-            request.onsuccess = () => {
-                const selectedCdn = request.result.find(cdn => cdn.selected === true);
-                resolve(selectedCdn || null);
-            };
-
-            request.onerror = () => reject(request.error);
-        });
-    } catch (error) {
-        console.warn('获取CDN设置失败:', error);
-        return null;
-    }
-}
 
 // 渲染CDN选择界面
 function renderCdnOptions() {
@@ -190,6 +70,7 @@ async function selectCdn(cdnId) {
     const cdn = state.availableCdns.find(c => c.id === cdnId);
     if (!cdn) return;
 
+    if (audioBaseUrl !== cdn.url) state.audioCache.clear();
     // 更新选中状态
     state.selectedCdn = cdn;
 
@@ -198,11 +79,11 @@ async function selectCdn(cdnId) {
     const remember = rememberCheckbox ? rememberCheckbox.checked : true;
 
     if (remember && !state.isLocalMode) {
-        await saveSelectedCdn(cdnId);
+        await saveSelectedCdn(cdn);
     }
 
     // 设置音频URL
-    AUIDO_URL = cdn.url;
+    audioBaseUrl = cdn.url;
 
     // 隐藏CDN选择界面，显示加载界面
     const cdnSelectScreen = document.getElementById('cdnSelectScreen');
@@ -214,116 +95,25 @@ async function selectCdn(cdnId) {
     startAudioLoading();
 }
 
-// 从IndexedDB获取音频
-async function getAudioFromCache(path) {
-    try {
-        const db = await initDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.get(path);
-
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
-    } catch (error) {
-        console.warn('从缓存获取音频失败:', error);
-        return null;
-    }
-}
-
-// 保存音频到IndexedDB
-async function saveAudioToCache(path, blob) {
-    try {
-        const db = await initDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], 'readwrite');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.put({
-                path,
-                blob,
-                timestamp: Date.now(),
-                cdnUrl: state.selectedCdn ? state.selectedCdn.url : AUIDO_URL // 记录CDN信息
-            });
-
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-        });
-    } catch (error) {
-        console.warn('保存音频到缓存失败:', error);
-    }
-}
-
-// 清理旧的缓存（超过30天）
-async function cleanupOldCache() {
-    try {
-        const db = await initDB();
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.getAll();
-
-        request.onsuccess = () => {
-            const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-            const currentCdnUrl = AUIDO_URL;
-
-            request.result.forEach(item => {
-                // 清理超过30天的缓存，以及不属于当前CDN的缓存
-                if (item.timestamp < thirtyDaysAgo ||
-                    (item.cdnUrl && item.cdnUrl !== currentCdnUrl)) {
-                    store.delete(item.path);
-                }
-            });
-        };
-    } catch (error) {
-        console.warn('清理缓存失败:', error);
-    }
-}
-
-// 预加载音频
-async function preloadAudio(voice, updateProgress) {
+// Load data independently of the progress UI.
+async function preloadAudio(voice, signal) {
     const path = voice.path;
-
-    // 先检查内存缓存
-    if (state.audioCache.has(path)) {
-        state.loadedCount++;
-        updateProgress();
-        return Promise.resolve();
-    }
-
-    // 检查IndexedDB缓存
+    const sourceUrl = audioBaseUrl;
+    if (state.audioCache.has(path)) return;
     const cached = await getAudioFromCache(path);
-    if (cached && cached.blob) {
+    if (signal.aborted || sourceUrl !== audioBaseUrl) return;
+    if (cached?.blob && cached.cdnUrl === sourceUrl) {
         state.audioCache.set(path, cached.blob);
-        state.loadedCount++;
-        updateProgress();
-        return Promise.resolve();
+        return;
     }
-
-    // 从网络加载
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', `${AUIDO_URL}${path}`, true);
-        xhr.responseType = 'blob';
-
-        xhr.onload = async () => {
-            if (xhr.status === 200) {
-                const blob = xhr.response;
-                state.audioCache.set(path, blob);
-
-                // 异步保存到IndexedDB
-                saveAudioToCache(path, blob);
-
-                state.loadedCount++;
-                updateProgress();
-                resolve();
-            } else {
-                reject(new Error(`加载失败: ${path}`));
-            }
-        };
-
-        xhr.onerror = () => reject(new Error(`网络错误: ${path}`));
-        xhr.send();
+    const response = await fetch(sourceUrl + path, {
+        signal: AbortSignal.any([signal, AbortSignal.timeout(12_000)]),
     });
+    if (!response.ok) throw new Error(`加载失败: ${path}`);
+    const blob = await response.blob();
+    if (signal.aborted || sourceUrl !== audioBaseUrl) return;
+    state.audioCache.set(path, blob);
+    void saveAudioToCache(path, blob, sourceUrl);
 }
 
 // 更新加载进度
@@ -348,85 +138,38 @@ function updateProgress() {
     }
 }
 
-// 批量预加载
-async function batchPreload(voices) {
+// Prepare audio, then mount the interface once on either success or failure.
+async function startAudioLoading() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) loadingScreen.style.display = 'flex';
+    state.voices = voices;
     state.totalToLoad = voices.length;
     state.loadedCount = 0;
-
-    // 更新进度显示
     updateProgress();
-
-    // 并行加载，但控制并发数
-    const CONCURRENCY = CONCURRENCY_MIX;
-    const batches = [];
-
-    for (let i = 0; i < voices.length; i += CONCURRENCY) {
-        const batch = voices.slice(i, i + CONCURRENCY);
-        const promises = batch.map(voice =>
-            preloadAudio(voice, updateProgress).catch(error => {
-                console.warn(`音频 ${voice.path} 预加载失败:`, error);
-                state.loadedCount++;
-                updateProgress();
-            })
-        );
-
-        batches.push(Promise.all(promises));
-    }
-
-    // 等待所有批次完成
-    for (const batch of batches) {
-        await batch;
-    }
-}
-
-// 开始音频加载（从原来的init函数中提取）
-async function startAudioLoading() {
+    const preloadController = new AbortController();
+    const preloadDeadline = window.setTimeout(() => preloadController.abort(), 45_000);
     try {
-        // 显示加载界面
-        const loadingScreen = document.getElementById('loadingScreen');
-        if (loadingScreen) {
-            loadingScreen.style.display = 'flex';
-        }
-
-        // 设置音频数据
-        state.voices = voices;
-
-        // 清理旧缓存
-        await cleanupOldCache();
-
-        // 预加载音频
-        await batchPreload(state.voices);
-
-        // 显示主界面
-        showMainContent();
-
-        // 渲染音频按钮
-        renderVoiceButtons();
-
-        // 绑定事件
-        bindEvents();
-
-        // 绑定 scroll-spy
-        bindScrollSpy();
-
-        loadRemoteOtherButtons();
-
-        console.log('初始化完成，已加载音频:', state.voices.length);
-        if (state.isLocalMode) {
-            console.log('使用本地文件模式');
-        } else if (state.selectedCdn) {
-            console.log('使用的CDN:', state.selectedCdn.name);
-        }
+        await Promise.race([(async () => {
+            await cleanupOldCache(audioBaseUrl);
+            if (!preloadController.signal.aborted) {
+                await preloadInBatches(voices, preloadAudio, () => {
+                    state.loadedCount++;
+                    updateProgress();
+                }, 5, preloadController.signal);
+            }
+        })(), new Promise(resolve => {
+            preloadController.signal.addEventListener('abort', resolve, { once: true });
+        })]);
     } catch (error) {
         console.error('初始化失败:', error);
-        // 即使预加载失败，也显示界面
-        showMainContent();
-        state.voices = voices;
-        renderVoiceButtons();
-        bindEvents();
-        bindScrollSpy();
-        loadRemoteOtherButtons();
+    } finally {
+        window.clearTimeout(preloadDeadline);
     }
+    showMainContent();
+    renderVoiceButtons();
+    bindEvents();
+    bindScrollSpy();
+    loadRemoteOtherButtons();
 }
 
 // 渲染音频按钮
@@ -617,6 +360,7 @@ function keepSidebarItemInView(item) {
 }
 
 function bindScrollSpy() {
+    unbindScrollSpy?.();
     const scroller = document.getElementById('contentScroll');
     if (!scroller) return;
 
@@ -630,7 +374,7 @@ function bindScrollSpy() {
 
     if (!sections.length || !sidebarItems.length) return;
 
-    scroller.addEventListener('scroll', () => {
+    const onScroll = () => {
         const activationLine = scroller.getBoundingClientRect().top + 42;
         let currentTag = sections[0].dataset.tag;
 
@@ -652,7 +396,9 @@ function bindScrollSpy() {
             item.classList.toggle('active', isActive);
             if (isActive) keepSidebarItemInView(item);
         });
-    });
+    };
+    scroller.addEventListener('scroll', onScroll);
+    unbindScrollSpy = () => scroller.removeEventListener('scroll', onScroll);
 }
 
 function normalizeOtherButtonUrl(url) {
@@ -788,13 +534,12 @@ function renderOtherButton(container) {
 
 // 获取本地化的标签名
 function getLocalizedTag(tag) {
-    return state.locales[state.currentLang].tags[tag] || tag;
+    return zhLocale.tags[tag] || tag;
 }
 
 // 获取本地化的音频标题
 function getLocalizedVoiceTitle(voice) {
-    return voice.messages[state.currentLang] ||
-        voice.messages.zh ||
+    return voice.messages.zh ||
         Object.values(voice.messages)[0] ||
         '未知音频';
 }
@@ -809,12 +554,12 @@ async function playVoice(voice) {
     if (!blob) {
         // 如果内存中没有，尝试从IndexedDB加载
         const cached = await getAudioFromCache(path);
-        if (cached && cached.blob) {
+        if (cached?.blob && cached.cdnUrl === audioBaseUrl) {
             blob = cached.blob;
             state.audioCache.set(path, blob);
         } else {
             // 回退到直接加载
-            const audio = new Audio(`${AUIDO_URL}${path}`);
+            const audio = new Audio(`${audioBaseUrl}${path}`);
             playAudioElement(audio, voice);
             return;
         }
@@ -930,6 +675,8 @@ function showCdnSelect() {
 
 // 绑定事件
 function bindEvents() {
+    if (eventsBound) return;
+    eventsBound = true;
     const buttonTab = document.getElementById('buttonTab');
     const infoTab = document.getElementById('infoTab');
 
@@ -1075,14 +822,14 @@ async function init() {
         if (state.isLocalMode) {
             // 本地模式，直接使用本地路径
             console.log('使用本地文件模式');
-            AUIDO_URL = './public/voices/';
+            audioBaseUrl = './public/voices/';
             startAudioLoading();
         } else if (state.isSingleCdnMode) {
             // 只有一个CDN，直接使用
             console.log('使用单CDN模式');
             const cdn = state.availableCdns[0];
             state.selectedCdn = cdn;
-            AUIDO_URL = cdn.url;
+            audioBaseUrl = cdn.url;
             startAudioLoading();
         } else {
             // 多个CDN，需要选择
@@ -1114,7 +861,7 @@ async function init() {
         } else {
             // 回退到本地模式
             state.isLocalMode = true;
-            AUIDO_URL = 'public/voices/';
+            audioBaseUrl = 'public/voices/';
             startAudioLoading();
         }
     }

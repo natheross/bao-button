@@ -2,9 +2,7 @@
 :root {
     /* ===== Surface ===== */
     --surface-background: #e3eaee;
-    --surface-base: #e8eff2;
     --surface-cool: #dce7ed;
-    --surface-warm: #eef2f2;
     --environment-image: url("./背景.png");
     --environment-tint: linear-gradient(rgba(69, 96, 123, 0.055), rgba(69, 96, 123, 0.055));
     /* 2880 × 1440 photo; its centered 2560 × 1440 area is the UI reference. */
@@ -28,18 +26,13 @@
 
     /* ===== 轻微边界与表面深度 ===== */
     --border-subtle: rgba(65, 79, 88, 0.09);
-    --shadow-diffuse: 0 8px 24px rgba(50, 62, 70, 0.055);
     --shadow-local: 0 3px 10px rgba(50, 62, 70, 0.045);
-    --local-glow: inset 0 1px 0 rgba(255, 255, 255, 0.52);
 
     /* ===== 功能色 ===== */
-    --danger-color: #f4a9b6;
     --danger-hover: #ef7f93;
 
     /* ===== 圆角 ===== */
-    --border-radius: 12px;
     --button-radius: 999px;
-    --voice-button-radius: 18px;
     --sidebar-radius: 28px;
 
     /* ===== 动画 ===== */
@@ -48,19 +41,8 @@
 
     /* ===== 旧变量兼容映射 ===== */
     --primary-color: var(--primary-soft-blue);
-    --primary-hover: #7f9bad;
-    --primary-active: #6f8796;
-    --primary-light: rgba(145, 172, 189, 0.12);
-    --bg-gradient-start: var(--surface-background);
-    --bg-gradient-mid: var(--surface-cool);
-    --bg-gradient-end: var(--surface-base);
     --border-color: var(--border-subtle);
-    --card-bg: rgba(239, 246, 249, 0.82);
-    --shadow-float: var(--shadow-diffuse);
     --shadow-soft: var(--shadow-local);
-    --shadow-inset: inset 1px 1px 3px rgba(50, 62, 70, 0.08), inset -1px -1px 3px rgba(255, 255, 255, 0.55);
-    --shadow: var(--shadow-local);
-    --sidebar-inset: rgba(255, 255, 255, 0.48);
 
     --spacing-sm: 8px;
     --spacing-md: 14px;
@@ -226,13 +208,6 @@ body::after {
     border-bottom: 0;
 }
 
-
-.topbar-title h1 {
-    margin: 0;
-    color: #7da3c9;
-    font-size: 38px;
-    font-weight: 600;
-}
 
 .topbar-controls {
     margin-left: auto;
@@ -1081,14 +1056,6 @@ body::after {
     text-decoration: underline;
 }
 
-.footer-note {
-    display: block;
-    margin-top: 5px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    font-style: italic;
-}
-
 .footer-title {
     color: #577d94;
     font-size: 1.1rem;
@@ -1850,10 +1817,6 @@ body::after {
     }
 }
 
-.current-status-error {
-    color: var(--danger-hover);
-}
-
 /* 滚动到栏目附近时读取数据；表情包由展开按钮单独加载 */
 
 .info-cards {
@@ -2008,8 +1971,7 @@ body::after {
     font-size: 14px;
 }
 
-.ed-filters input,
-.ed-filters select {
+.ed-filters input {
     min-height: 38px;
     padding: 7px 10px;
     border: 1px solid var(--border-color);
@@ -2061,6 +2023,12 @@ body::after {
     overflow: visible;
 }
 
+.prediction-chart-note {
+    margin: 8px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
 .prediction-gridline {
     stroke: rgba(70, 102, 127, 0.22);
     stroke-width: 1;
@@ -2089,12 +2057,6 @@ body::after {
 
 .prediction-dot {
     fill: #2e668d;
-}
-
-.prediction-legend {
-    margin: 8px 0;
-    color: var(--text-primary);
-    font-size: 14px;
 }
 
 @media (max-width: 900px) {

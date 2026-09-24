@@ -1,3 +1,5 @@
+import { fetchJson } from './api.js';
+
 const ED_URL = new URL('../../public/data/ed.json', import.meta.url);
 let entries = null;
 let loading = null;
@@ -25,8 +27,7 @@ function currentFilters() {
 export function updateEdResults() {
     const container = document.getElementById('edContent');
     if (!container || !entries) return;
-    const matches = filterEdEntries(entries, currentFilters())
-        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    const matches = filterEdEntries(entries, currentFilters());
     if (!matches.length) {
         container.textContent = entries.length ? '没有符合条件的 ED 记录' : '暂无 ED 记录';
         return;
@@ -52,15 +53,13 @@ export async function renderEdStatus() {
     if (!container) return;
     if (entries) {
         updateEdResults();
-        return;
+        return true;
     }
     container.textContent = '正在读取 ED...';
     if (!loading) {
-        loading = fetch(ED_URL, { cache: 'no-store' }).then(async response => {
-            if (!response.ok) throw new Error(`ED HTTP ${response.status}`);
-            const data = await response.json();
+        loading = fetchJson(ED_URL, 'ED').then(data => {
             if (!Array.isArray(data)) throw new Error('ED 数据格式错误');
-            entries = data;
+            entries = data.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
             const dateOptions = document.getElementById('edDateOptions');
             if (dateOptions) {
                 const dates = [...new Set(entries.map(entry => entry.date).filter(Boolean))].sort().reverse();
@@ -75,8 +74,10 @@ export async function renderEdStatus() {
     try {
         await loading;
         updateEdResults();
+        return true;
     } catch (error) {
         console.error(error);
         container.textContent = 'ED 记录暂时无法读取';
+        return false;
     }
 }

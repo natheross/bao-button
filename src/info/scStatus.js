@@ -1,4 +1,4 @@
-import { infoApiUrl } from './api.js';
+import { infoApiUrl, fetchJson } from './api.js';
 
 const SC_URL = infoApiUrl('/api/sc/current');
 const LABELS = [['coin', '钢镚'], ['scallion', '葱花'], ['egg', '鸡蛋'], ['tomato', '番茄']];
@@ -14,11 +14,9 @@ function sceneTitle(scene, index) {
 export async function renderScStatus() {
     const container = document.getElementById('scContent');
     if (!container) return;
-    container.textContent = '正在读取番茄炒蛋...';
+    container.textContent = '正在读取垫饭煲厨房...';
     try {
-        const response = await fetch(SC_URL, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`SC HTTP ${response.status}`);
-        const data = await response.json();
+        const data = await fetchJson(SC_URL, 'SC');
         if (!data.ok || !Array.isArray(data.sessions)) throw new Error('SC 数据格式错误');
         if (!data.sessions.length) {
             container.textContent = '暂无直播记录';
@@ -46,6 +44,6 @@ export async function renderScStatus() {
         container.replaceChildren(...cards);
     } catch (error) {
         console.error(error);
-        container.textContent = '番茄炒蛋暂时离线';
+        container.textContent = '垫饭煲厨房暂时离线';
     }
 }

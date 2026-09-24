@@ -1,3 +1,5 @@
+import { fetchJson } from './api.js';
+
 const MANIFEST_URL = new URL('../../public/data/memes.json', import.meta.url);
 const MEME_DIR = new URL('../../public/memes/', import.meta.url);
 const THUMB_DIR = new URL('../../public/memes/thumbs/', import.meta.url);
@@ -150,9 +152,7 @@ export async function setMemeGalleryExpanded(expanded) {
     }
     container.textContent = '正在读取表情包...';
     try {
-        const response = await fetch(MANIFEST_URL, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`表情包清单 HTTP ${response.status}`);
-        const manifest = await response.json();
+        const manifest = await fetchJson(MANIFEST_URL, '表情包清单');
         if (!Array.isArray(manifest)) throw new Error('表情包清单格式错误');
         if (current !== generation) return;
         entries = manifest.filter(entry =>

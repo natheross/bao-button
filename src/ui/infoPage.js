@@ -8,14 +8,16 @@ const sections = [
     { id: 'currentStatusSection', label: '📊　目前数据' },
     { id: 'edSection', label: '🎵　ED 记录' },
     { id: 'memeSection', label: '🖼️　表情包分享库' },
-    { id: 'scSection', label: '🍅　番茄炒蛋' },
+    { id: 'scSection', label: '🍅　垫饭煲厨房' },
     { id: 'predictionSection', label: '📈　宝煲行为学' },
 ];
 let initialized = false;
 let active = false;
 let scTimer = null;
-let predictionLoaded = false;
-let edLoaded = false;
+let predictionInFlight = false;
+let nextPredictionReadAt = 0;
+let edInFlight = false;
+let nextEdReadAt = 0;
 let refreshQueued = false;
 
 function nearViewport(element) {
@@ -47,14 +49,19 @@ function refreshVisibleSections() {
         stopScPolling();
     }
     const prediction = document.getElementById('predictionSection');
-    if (!predictionLoaded && prediction && nearViewport(prediction)) {
-        predictionLoaded = true;
-        renderPrediction();
+    if (!predictionInFlight && Date.now() >= nextPredictionReadAt &&
+        prediction && nearViewport(prediction)) {
+        predictionInFlight = true;
+        renderPrediction().then(success => {
+            nextPredictionReadAt = Date.now() + (success ? 10 : 1) * 60_000;
+        }).finally(() => { predictionInFlight = false; });
     }
     const ed = document.getElementById('edSection');
-    if (!edLoaded && ed && nearViewport(ed)) {
-        edLoaded = true;
-        renderEdStatus();
+    if (!edInFlight && Date.now() >= nextEdReadAt && ed && nearViewport(ed)) {
+        edInFlight = true;
+        renderEdStatus().then(success => {
+            nextEdReadAt = success ? Infinity : Date.now() + 60_000;
+        }).finally(() => { edInFlight = false; });
     }
 
     let current = sections[0].id;
@@ -122,6 +129,9 @@ export function initInfoPage() {
     document.addEventListener('scroll', queueRefresh, { capture: true, passive: true });
     window.addEventListener('resize', queueRefresh, { passive: true });
     document.addEventListener('visibilitychange', queueRefresh);
+    window.setInterval(() => {
+        if (active && !document.hidden) queueRefresh();
+    }, 60_000);
     renderCurrentStatus();
     queueRefresh();
 }

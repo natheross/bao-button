@@ -1,4 +1,4 @@
-import { infoApiUrl } from './api.js';
+import { infoApiUrl, fetchJson } from './api.js';
 
 const CURRENT_URL = infoApiUrl('/api/current');
 
@@ -49,9 +49,7 @@ export async function renderCurrentStatus() {
     container.classList.add('current-status-grid--loading');
     container.textContent = '正在读取数据...';
     try {
-        const response = await fetch(CURRENT_URL, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`目前数据 HTTP ${response.status}`);
-        const data = await response.json();
+        const data = await fetchJson(CURRENT_URL, '目前数据');
         if (!data.ok) throw new Error(data.error || '目前数据暂不可用');
 
         const live = data.live || {};
