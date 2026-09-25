@@ -188,9 +188,31 @@
                                 <div id="memeContent" class="meme-expanded-content"></div>
                             </div>
 
-                            <section id="scSection" class="info-section">
+                            <section id="scSection" class="info-section kitchen-section">
                                 <h1>垫饭煲厨房</h1>
-                                <div id="scContent" class="info-cards"></div>
+                                <div class="kitchen-frame">
+                                    <div class="kitchen-session">
+                                        <div id="kitchenSessionTime" class="kitchen-session-time"></div>
+                                        <div class="kitchen-session-nav">
+                                            <button id="kitchenPrevious" type="button">前一场直播</button>
+                                            <button id="kitchenNext" type="button">后一场直播</button>
+                                        </div>
+                                    </div>
+                                    <div class="kitchen-fish-area">
+                                        <img id="kitchenFishbowl" class="kitchen-fishbowl" alt="" hidden>
+                                        <div id="kitchenCoinCount" class="kitchen-count kitchen-count--coin" hidden></div>
+                                    </div>
+                                    <div id="kitchenSeasoningCount" class="kitchen-count kitchen-count--seasoning" hidden></div>
+                                    <div id="kitchenBoard" class="kitchen-board" aria-hidden="true">
+                                        <div id="kitchenEggCount" class="kitchen-count kitchen-count--egg" hidden></div>
+                                        <div id="kitchenEggs" class="kitchen-board-zone kitchen-board-zone--eggs"></div>
+                                        <div id="kitchenTomatoes" class="kitchen-board-zone kitchen-board-zone--tomatoes"></div>
+                                        <div id="kitchenTomatoCount" class="kitchen-count kitchen-count--tomato" hidden></div>
+                                    </div>
+                                    <img id="kitchenDish" class="kitchen-dish" alt="" decoding="async" loading="lazy" hidden>
+                                    <img id="kitchenScallions" class="kitchen-scallions" alt="" decoding="async" loading="lazy" hidden>
+                                    <div id="scContent" class="kitchen-message" role="status"></div>
+                                </div>
                             </section>
 
                             <section id="predictionSection" class="info-section">

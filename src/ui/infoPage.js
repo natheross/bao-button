@@ -14,6 +14,7 @@ const sections = [
 let initialized = false;
 let active = false;
 let scTimer = null;
+let scInFlight = false;
 let predictionInFlight = false;
 let nextPredictionReadAt = 0;
 let edInFlight = false;
@@ -32,21 +33,20 @@ function stopScPolling() {
     }
 }
 
+function refreshSc() {
+    if (scInFlight || !active || document.hidden) return;
+    scInFlight = true;
+    renderScStatus().finally(() => { scInFlight = false; });
+}
+
 function refreshVisibleSections() {
     if (!initialized || !active || document.hidden) {
         stopScPolling();
         return;
     }
-    const sc = document.getElementById('scSection');
-    if (sc && nearViewport(sc)) {
-        if (scTimer === null) {
-            renderScStatus();
-            scTimer = window.setInterval(() => {
-                if (active && !document.hidden && nearViewport(sc)) renderScStatus();
-            }, 4 * 60_000);
-        }
-    } else {
-        stopScPolling();
+    if (scTimer === null) {
+        refreshSc();
+        scTimer = window.setInterval(refreshSc, 3 * 60_000);
     }
     const prediction = document.getElementById('predictionSection');
     if (!predictionInFlight && Date.now() >= nextPredictionReadAt &&

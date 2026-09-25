@@ -11,6 +11,14 @@ function shortTime(value) {
     });
 }
 
+function beijingDateTime(value) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '时间未知' : date.toLocaleString('zh-CN', {
+        timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+}
+
 function nextSevenDates(generatedAt) {
     const day = String(generatedAt).slice(0, 10);
     const first = new Date(`${day}T00:00:00Z`);
@@ -32,6 +40,37 @@ function svgElement(name, attributes = {}) {
     return element;
 }
 
+function predictionTooltipContent(point, probability) {
+    const content = document.createDocumentFragment();
+    const endTime = new Date(Date.parse(point.time) + 30 * 60_000);
+    const time = document.createElement('div');
+    time.className = 'prediction-popover-time';
+    time.textContent = `${beijingDateTime(point.time)}–${shortTime(endTime)}`;
+    const chance = document.createElement('strong');
+    chance.className = 'prediction-popover-chance';
+    chance.textContent = `开播概率 ${(probability * 100).toFixed(1)}%`;
+    const history = document.createElement('div');
+    history.className = 'prediction-popover-history';
+    const recentStarts = point.recentStartsInWindow;
+    if (!Array.isArray(recentStarts)) {
+        history.textContent = '历史记录暂不可用';
+    } else if (!recentStarts.length) {
+        history.textContent = '此时间点暂无开播记录';
+    } else {
+        const label = document.createElement('span');
+        label.textContent = '该时段最近 3 次开播';
+        const list = document.createElement('ul');
+        for (const start of recentStarts.slice(0, 3)) {
+            const item = document.createElement('li');
+            item.textContent = beijingDateTime(start);
+            list.appendChild(item);
+        }
+        history.append(label, list);
+    }
+    content.append(time, chance, history);
+    return content;
+}
+
 function predictionChart(points, levels) {
     const width = 760;
     const height = 320;
@@ -43,15 +82,33 @@ function predictionChart(points, levels) {
     const ceiling = Math.min(1, Math.max(0.4, Math.ceil(Math.max(...values) * 10) / 10));
     const x = index => left + index * (width - left - right) / (points.length - 1);
     const y = value => bottom - value / ceiling * (bottom - top);
+    const chart = document.createElement('div');
+    chart.className = 'prediction-chart-wrap';
     const svg = svgElement('svg', {
         viewBox: `0 0 ${width} ${height}`,
-        role: 'img',
+        role: 'group',
         'aria-label': `未来两小时开播倾向曲线；中危从 ${(levels.medium * 100).toFixed(0)}% 起，高危从 ${(levels.high * 100).toFixed(0)}% 起`,
         class: 'prediction-chart',
     });
-    const title = svgElement('title');
-    title.textContent = '未来两小时开播倾向与中高危时间带';
-    svg.appendChild(title);
+    const popover = document.createElement('div');
+    popover.className = 'prediction-popover';
+    popover.id = 'prediction-point-tooltip';
+    popover.setAttribute('role', 'tooltip');
+    popover.hidden = true;
+    const hidePopover = () => { popover.hidden = true; };
+    const showPopover = index => {
+        popover.replaceChildren(predictionTooltipContent(points[index], values[index]));
+        popover.hidden = false;
+        const chartWidth = chart.getBoundingClientRect().width;
+        const pointX = chartWidth * x(index) / width;
+        const pointY = chartWidth * y(values[index]) / width;
+        const halfWidth = popover.offsetWidth / 2;
+        const center = Math.max(halfWidth,
+            Math.min(pointX, chartWidth - halfWidth));
+        popover.style.left = `${center}px`;
+        popover.style.top = `${pointY}px`;
+        popover.style.setProperty('--prediction-arrow-offset', `${pointX - center}px`);
+    };
     const stepWidth = (width - left - right) / (points.length - 1);
     for (let index = 0; index < points.length; index++) {
         const level = points[index].level;
@@ -84,14 +141,24 @@ function predictionChart(points, levels) {
     });
     svg.appendChild(path);
     for (let index = 0; index < points.length; index++) {
+        const point = points[index];
+        const marker = svgElement('g', { class: 'prediction-point' });
         const circle = svgElement('circle', {
             cx: x(index), cy: y(values[index]), r: 3.5,
             class: 'prediction-dot',
         });
-        const tooltip = svgElement('title');
-        tooltip.textContent = `${shortTime(points[index].time)} · ${(values[index] * 100).toFixed(1)}%`;
-        circle.appendChild(tooltip);
-        svg.appendChild(circle);
+        const hitArea = svgElement('circle', {
+            cx: x(index), cy: y(values[index]), r: 12,
+            class: 'prediction-hit-area', tabindex: 0,
+            'aria-label': `${beijingDateTime(point.time)} 开播概率 ${(values[index] * 100).toFixed(1)}%，查看该时段开播记录`,
+            'aria-describedby': popover.id,
+        });
+        hitArea.addEventListener('pointerenter', () => showPopover(index));
+        hitArea.addEventListener('pointerleave', hidePopover);
+        hitArea.addEventListener('focus', () => showPopover(index));
+        hitArea.addEventListener('blur', hidePopover);
+        marker.append(circle, hitArea);
+        svg.appendChild(marker);
     }
     for (const index of [0, Math.floor((points.length - 1) / 2), points.length - 1]) {
         const label = svgElement('text', {
@@ -102,7 +169,8 @@ function predictionChart(points, levels) {
         label.textContent = shortTime(points[index].time);
         svg.appendChild(label);
     }
-    return svg;
+    chart.append(svg, popover);
+    return chart;
 }
 
 export async function renderPrediction() {
