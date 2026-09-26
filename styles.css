@@ -1957,6 +1957,14 @@ body::after {
     font-variant-numeric: tabular-nums;
 }
 
+.info-update-error {
+    grid-column: 1 / -1;
+    margin: 8px 0 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 .current-status-updated {
     grid-area: updated;
 

@@ -1,4 +1,4 @@
-import { infoApiUrl, fetchJson } from './api.js';
+import { infoApiUrl, fetchJson, showUpdateError } from './api.js';
 
 const PREDICTION_URL = infoApiUrl('/api/prediction');
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -207,8 +207,8 @@ function predictionChart(points, levels, width = 760, height = 320) {
 export async function renderPrediction() {
     const container = document.getElementById('predictionContent');
     if (!container) return;
-    chartResizeObserver?.disconnect();
-    container.textContent = '正在读取预测...';
+    const hasData = !!container.querySelector('.prediction-layout');
+    if (!hasData) container.textContent = '正在读取预测...';
     try {
         const data = await fetchJson(PREDICTION_URL, '预测');
         if (!data.ok || !Array.isArray(data.forecast?.points)) {
@@ -279,6 +279,7 @@ export async function renderPrediction() {
             historyPanel.append(heading, patterns);
             layout.appendChild(historyPanel);
         }
+        chartResizeObserver?.disconnect();
         container.replaceChildren(layout);
         // 图表跟随卡片可用空间绘制，避免宽屏下按固定宽高比把整行撑高。
         chartResizeObserver = new ResizeObserver(([entry]) => {
@@ -291,7 +292,8 @@ export async function renderPrediction() {
         return true;
     } catch (error) {
         console.error(error);
-        container.textContent = '预测暂时不可用';
+        if (hasData) showUpdateError(container, error);
+        else container.textContent = '预测暂时不可用';
         return false;
     }
 }
