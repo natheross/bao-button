@@ -1,7 +1,7 @@
 name: 检查内容并发布网页
 on:
   push:
-    branches: [bao-info-progress-1]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -25,7 +25,7 @@ jobs:
         with:
           path: site-output
   deploy:
-    if: github.event_name != 'pull_request' && github.ref_name == 'bao-info-progress-1'
+    if: github.event_name != 'pull_request' && github.ref_name == 'main'
     needs: build
     runs-on: ubuntu-latest
     permissions:
