@@ -1,4 +1,4 @@
-import { infoApiUrl, fetchJson } from './api.js';
+import { infoApiUrl, fetchJson, showUpdateError } from './api.js';
 
 const CURRENT_URL = infoApiUrl('/api/current');
 const STATUS_IMAGES = new URL('../../public/current-status/', import.meta.url);
@@ -78,8 +78,11 @@ function createLastSeenItem(liveStatus, lastSeenAt) {
 export async function renderCurrentStatus() {
     const container = document.getElementById('currentStatusContent');
     if (!container) return;
-    container.classList.add('current-status-grid--loading');
-    container.textContent = '正在读取数据...';
+    const hasData = !!container.querySelector('.current-status-updated');
+    if (!hasData) {
+        container.classList.add('current-status-grid--loading');
+        container.textContent = '正在读取数据...';
+    }
     try {
         const data = await fetchJson(CURRENT_URL, '目前数据');
         if (!data.ok) throw new Error(data.error || '目前数据暂不可用');
@@ -108,6 +111,10 @@ export async function renderCurrentStatus() {
         container.appendChild(updated);
     } catch (error) {
         console.error(error);
+        if (hasData) {
+            showUpdateError(container, error);
+            return;
+        }
         container.classList.remove('current-status-grid--loading');
         container.classList.add('current-status-grid--offline');
         container.replaceChildren(createStatusItem('offline', '目前数据', '暂时离线'));

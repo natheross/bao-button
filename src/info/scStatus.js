@@ -1,4 +1,4 @@
-import { infoApiUrl, fetchJson } from './api.js';
+import { infoApiUrl, fetchJson, showUpdateError } from './api.js';
 import { dishFilename, fishbowlFilename } from './kitchenAssets.js';
 import { boardRect, dishRect, ingredientPosition, scallionRect } from './kitchenLayout.js';
 
@@ -197,6 +197,7 @@ export async function renderScStatus() {
         container.textContent = sessions.length ? '' : '暂无直播记录';
     } catch (error) {
         console.error(error);
+        if (sessions.length) showUpdateError(container, error);
         if (!sessions.length) {
             renderSelectedSession();
             container.textContent = '垫饭煲厨房暂时离线';
