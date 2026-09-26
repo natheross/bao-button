@@ -52,15 +52,40 @@
     <div id="mainContent" class="main-content" style="display: none;">
 
         <div class="app-frame">
+            <div class="app-header">
+                <div class="sidebar-clock" aria-label="当前本地日期和时间">
+                    <time class="sidebar-clock-time" id="sidebarClockTime"></time>
+                    <span class="sidebar-clock-date" id="sidebarClockDate"></span>
+                </div>
+                <div class="topbar">
+                    <div class="topbar-tabs" role="tablist" aria-label="一级页面">
+                        <button class="topbar-tab active" id="buttonTab" type="button" role="tab"
+                            aria-selected="true" aria-controls="buttonPage">煲按钮<span class="topbar-tab-english" lang="en" aria-hidden="true">BUTTONS</span></button>
+                        <button class="topbar-tab" id="infoTab" type="button" role="tab"
+                            aria-selected="false" aria-controls="infoPage">煲情报<span class="topbar-tab-english" lang="en" aria-hidden="true">INFORMATION</span></button>
+                    </div>
+                    <div class="topbar-controls controls">
+                        <button id="randomPlay"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h3c4 0 6 12 10 12h3M16 14l4 4-4 4M4 18h3c1.5 0 2.7-1.7 4-4M13 10c1.3-2.3 2.5-4 4-4h3M16 2l4 4-4 4"/></svg><span>随机播放</span></button>
+                        <button id="stopAll"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="5" width="14" height="14" rx="2"/></svg><span>停止所有</span></button>
+                        <label><input type="checkbox" id="loopMode"> 洗脑循环</label>
+                        <button id="changeCdn" class="cdn-change-btn">更换音频源</button>
+                    </div>
+                    <div class="topbar-info-controls controls" hidden>
+                        <button id="refreshInfo" type="button"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 10a8 8 0 1 0-2 8M20 4v6h-6"/></svg><span>刷新情报</span></button>
+                    </div>
+                </div>
+            </div>
             <div class="app-shell">
 
                 <!-- 左侧固定栏 -->
                 <aside class="sidebar">
                     <button class="sidebar-toggle" id="sidebarToggle" aria-label="收起/展开侧边栏">
-                        ❮
+                        <span class="sidebar-toggle-icon" aria-hidden="true">❮</span>
                     </button>
 
                     <nav class="sidebar-nav" id="sidebarNav">
+                    </nav>
+                    <nav class="sidebar-nav" id="infoSidebarNav" aria-label="煲情报目录" hidden>
                     </nav>
                     <div class="sidebar-logo">
                         <img src="./public/logo.png" alt="logo">
@@ -69,80 +94,144 @@
 
                 <!-- 右侧主区域 -->
                 <section class="main-area">
-
-                    <!-- 顶部固定条 -->
-                    <div class="topbar">
-
-                        <div class="topbar-title">
-                            <h1>煲按钮(°ಠ◡ಠ)</h1>
-                        </div>
-
-                        <!-- ⚠️ controls 内容原样搬到这里 -->
-                        <div class="topbar-controls controls">
-                            <button id="randomPlay">随机播放</button>
-                            <button id="stopAll">停止所有</button>
-                            <label>
-                                <input type="checkbox" id="loopMode"> 洗脑循环
-                            </label>
-                            <button id="changeCdn" class="cdn-change-btn">更换音频源</button>
-                        </div>
-
-                    </div>
-
                     <!-- 右侧可滚动内容区 -->
                     <div class="content" id="contentScroll">
 
-                        <main id="voiceContainer">
-                            <!-- 音频按钮仍然由 JS 动态生成 -->
-                        </main>
+                        <div id="buttonPage">
+                            <main id="voiceContainer">
+                                <!-- 音频按钮仍然由 JS 动态生成 -->
+                            </main>
 
-                        <!-- ⚠️ footer 内容原样搬到这里 -->
-                        <footer class="app-footer">
-                            <div class="footer-content">
-                                <div class="footer-section">
-                                    <p class="footer-text">
-                                        基于
-                                        <a href="https://github.com/yandujun363/audio-button-template"
-                                            target="_blank"
-                                            rel="noopener noreferrer">yandujun363/audio-button-template</a>
-                                        制作
-                                        <br><em>由于样本量过大，垫饭煲仍在筛选动物朋友的声音</em>
-                                        <br><em><del>筛选音频的过程中没有垫饭煲受到伤害
-                                            <br>No Dianfanbaos WereHarmed In The Screening Of These Voices</del></em>
-                                    </p>
+                            <!-- ⚠️ footer 内容原样搬到这里 -->
+                            <footer class="app-footer">
+                                <div class="footer-content">
+                                    <div class="footer-section">
+                                        <p class="footer-text">
+                                            基于
+                                            <a href="https://github.com/yandujun363/audio-button-template"
+                                                target="_blank"
+                                                rel="noopener noreferrer">yandujun363/audio-button-template</a>
+                                            制作
+                                            <br><em>由于样本量过大，垫饭煲仍在筛选动物朋友的声音</em>
+                                            <br><em><del>筛选音频的过程中没有垫饭煲受到伤害
+                                                <br>No Dianfanbaos WereHarmed In The Screening Of These Voices</del></em>
+                                        </p>
+                                    </div>
+
+                                    <div class="footer-section">
+                                        <h3 class="footer-title">使用指南</h3>
+                                        <ul class="guide-list">
+                                            <li>点击按钮即可播放对应音声</li>
+                                            <li>多次点击可以造成相当鬼畜的效果</li>
+                                            <li>开启洗脑循环将会一直播放一个音频</li>
+                                            <li>如果你开启洗脑循环后一直随意点击按钮<del>广域乱射</del>，造成的后果<strong>主煲与网站作者概不负责</strong></li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="footer-section">
+                                        <h3 class="footer-title">相关链接</h3>
+                                        <a href="https://space.bilibili.com/1978636705" target="_blank"
+                                            rel="noopener noreferrer" class="footer-link">
+                                            主播空间
+                                        </a>
+                                        <a href="https://live.bilibili.com/26872684" target="_blank"
+                                            rel="noopener noreferrer" class="footer-link">
+                                            直播间
+                                        </a>
+                                        <a href="https://github.com/Latori12/bao-button" target="_blank"
+                                            rel="noopener noreferrer" class="footer-link">
+                                            项目地址
+                                        </a>
+                                    </div>
                                 </div>
 
-                                <div class="footer-section">
-                                    <h3 class="footer-title">使用指南</h3>
-                                    <ul class="guide-list">
-                                        <li>点击按钮即可播放对应音声</li>
-                                        <li>多次点击可以造成相当鬼畜的效果</li>
-                                        <li>开启洗脑循环将会一直播放一个音频</li>
-                                        <li>如果你开启洗脑循环后一直随意点击按钮<del>广域乱射</del>，造成的后果<strong>主煲与网站作者概不负责</strong></li>
-                                    </ul>
+                                <div class="footer-bottom">
+                                    <p class="copyright">© 2026 煲按钮(°ಠ◡ಠ) - 仅供娱乐使用</p>
                                 </div>
+                            </footer>
+                        </div>
 
-                                <div class="footer-section">
-                                    <h3 class="footer-title">相关链接</h3>
-                                    <a href="https://space.bilibili.com/1978636705" target="_blank"
-                                        rel="noopener noreferrer" class="footer-link">
-                                        主播空间
-                                    </a>
-                                    <a href="https://live.bilibili.com/26872684" target="_blank"
-                                        rel="noopener noreferrer" class="footer-link">
-                                        直播间
-                                    </a>
-                                    <a href="https://github.com/Latori12/bao-button" target="_blank"
-                                        rel="noopener noreferrer" class="footer-link">
-                                        项目地址
-                                    </a>
+                        <section id="infoPage" hidden>
+                            <div class="info-overview">
+                                <section id="currentStatusSection" class="info-section">
+                                    <h1>目前数据</h1>
+                                    <div id="currentStatusContent" class="current-status-grid">
+                                    </div>
+                                </section>
+
+                                <div class="info-overview-side">
+                                    <section id="edSection" class="info-section">
+                                        <h1>ED 记录</h1>
+                                        <div class="ed-filters" role="search" aria-label="筛选 ED 记录">
+                                            <div class="ed-date-control">
+                                                <label for="edDateFilter">日期</label>
+                                                <div class="ed-date-field">
+                                                    <input id="edDateFilter" type="search" inputmode="numeric" placeholder="输入日期数字">
+                                                    <details id="edDateMenu">
+                                                        <summary aria-label="选择 ED 日期">▾</summary>
+                                                        <div id="edDateOptions"></div>
+                                                    </details>
+                                                </div>
+                                            </div>
+                                            <label>歌名或歌手
+                                                <input id="edKeywordFilter" type="search" placeholder="输入关键字">
+                                            </label>
+                                            <button id="edClearFilters" class="info-refresh" type="button">清除筛选</button>
+                                        </div>
+                                        <div id="edContent" class="info-cards ed-results" role="region"
+                                            aria-label="ED 查询结果" tabindex="0"></div>
+                                    </section>
+
+                                    <section id="memeSection" class="info-section">
+                                        <button id="memeExpand" class="meme-capsule" type="button"
+                                            aria-expanded="false" aria-controls="memeContent"
+                                            aria-label="展开表情包分享库">表情包分享库
+                                            <span class="meme-capsule-icon" aria-hidden="true">
+                                                <span class="meme-capsule-lines"><span></span><span></span><span></span></span>
+                                                <span class="meme-capsule-arrow"></span>
+                                            </span>
+                                        </button>
+                                    </section>
                                 </div>
+                                <div id="memeContent" class="meme-expanded-content"></div>
                             </div>
 
-                            <div class="footer-bottom">
-                                <p class="copyright">© 2026 煲按钮(°ಠ◡ಠ) - 仅供娱乐使用</p>
-                            </div>
-                        </footer>
+                            <section id="scSection" class="info-section kitchen-section">
+                                <h1>垫饭煲厨房</h1>
+                                <div class="kitchen-frame">
+                                    <div class="kitchen-scene">
+                                        <div class="kitchen-session">
+                                            <div id="kitchenSessionTime" class="kitchen-session-time"></div>
+                                            <div class="kitchen-session-nav">
+                                                <button id="kitchenPrevious" type="button">前一场直播</button>
+                                                <button id="kitchenNext" type="button">后一场直播</button>
+                                            </div>
+                                        </div>
+                                        <div class="kitchen-fish-area">
+                                            <img id="kitchenFishbowl" class="kitchen-fishbowl" alt="" hidden>
+                                            <div id="kitchenCoinCount" class="kitchen-count kitchen-count--coin" hidden></div>
+                                        </div>
+                                        <div id="kitchenSeasoningCount" class="kitchen-count kitchen-count--seasoning" hidden></div>
+                                        <div id="kitchenBoard" class="kitchen-board" aria-hidden="true">
+                                            <div id="kitchenEggCount" class="kitchen-count kitchen-count--egg" hidden></div>
+                                            <div id="kitchenEggs" class="kitchen-board-zone kitchen-board-zone--eggs"></div>
+                                            <div id="kitchenTomatoes" class="kitchen-board-zone kitchen-board-zone--tomatoes"></div>
+                                            <div id="kitchenTomatoCount" class="kitchen-count kitchen-count--tomato" hidden></div>
+                                        </div>
+                                        <img id="kitchenDish" class="kitchen-dish" alt="" decoding="async" loading="lazy" hidden>
+                                        <img id="kitchenScallions" class="kitchen-scallions" alt="" decoding="async" loading="lazy" hidden>
+                                        <div id="scContent" class="kitchen-message" role="status"></div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section id="predictionSection" class="info-section">
+                                <h1>宝煲行为学</h1>
+                                <p class="prediction-disclaimer">图一乐预测，饼学大厦唯一真理是自由的宝煲不可预测</p>
+                                <div id="predictionContent" class="info-cards"></div>
+                            </section>
+
+                        </section>
 
                     </div>
                 </section>
@@ -154,6 +243,7 @@
 
     <!-- 修改为模块化加载 -->
     <script type="module" src="app.js"></script>
+    <script type="module" src="src/ui/sidebarClock.js"></script>
 
 </body>
 
