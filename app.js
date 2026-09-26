@@ -1,6 +1,5 @@
 // ES模块版本
-import { zhLocale } from './src/locales/zh.js';
-import { voices } from './src/config/voices.js';
+import { zhLocale, voices } from './generated/content.js';
 import { CDN_CONFIGS } from './src/config/cdns.js';
 import { otherbutton, otherbuttonRemote } from './src/config/otherbutton.js';
 import { initInfoPage, setInfoPageActive } from './src/ui/infoPage.js';
@@ -131,7 +130,7 @@ function updateProgress() {
     // 更新CDN信息显示
     if (loadingCdnInfo) {
         if (state.isLocalMode) {
-            loadingCdnInfo.textContent = '音频源: 本地文件 (public/voices/)';
+            loadingCdnInfo.textContent = '音频源: 本地文件';
         } else if (state.selectedCdn) {
             loadingCdnInfo.textContent = `音频源: ${state.selectedCdn.name}`;
         }
@@ -196,7 +195,15 @@ function renderVoiceButtons() {
         // 渲染分类标题
         const tagName = getLocalizedTag(tag);
         const heading = document.createElement('h2');
-        heading.textContent = tagName;
+        const headingParts = tagName.match(/^(\S+)\s+(.+)$/u);
+        if (headingParts) {
+            const icon = document.createElement('span');
+            icon.className = 'category-heading-icon';
+            icon.textContent = headingParts[1];
+            heading.append(icon, headingParts[2]);
+        } else {
+            heading.textContent = tagName;
+        }
         const buttons = document.createElement('div');
         buttons.className = 'voice-buttons';
         categoryElement.append(heading, buttons);
@@ -595,7 +602,6 @@ function playAudioElement(audio, voice, cleanupCallback) {
         audio: audio,
         path: voice.path,
         progressMask: progressMask,
-        voice: voice,
         cleanup: cleanupCallback
     });
 
@@ -719,7 +725,7 @@ function bindEvents() {
         }
     }
 
-    // Sidebar 折叠/展开（两阶段，避免文字闪现）
+    // 收起时先淡出 Logo，再缩窄侧边栏，避免图片被布局挤小后闪现。
     const sidebarToggle = document.getElementById('sidebarToggle');
     const mainContent = document.getElementById('mainContent');
 
@@ -732,26 +738,46 @@ function bindEvents() {
             mainContent.classList.add('sidebar-animating');
 
             const shell = mainContent.querySelector('.app-shell');
+            const logo = mainContent.querySelector('.sidebar-logo img');
+            let logoFadeTimer;
+            let gridTimer;
+            let gridStarted = false;
             const finish = (event) => {
                 if (event && (event.target !== shell || event.propertyName !== 'grid-template-columns')) return;
-                window.clearTimeout(fallback);
+                window.clearTimeout(logoFadeTimer);
+                window.clearTimeout(gridTimer);
+                logo?.removeEventListener('transitionend', onLogoFade);
                 shell.removeEventListener('transitionend', finish);
                 mainContent.classList.remove('sidebar-animating');
                 mainContent.classList.remove('sidebar-collapsing');
                 mainContent.classList.remove('sidebar-expanding');
             };
 
-            shell.addEventListener('transitionend', finish);
-            const fallback = window.setTimeout(finish, 350);
+            const startGrid = () => {
+                if (gridStarted) return;
+                gridStarted = true;
+                window.clearTimeout(logoFadeTimer);
+                logo?.removeEventListener('transitionend', onLogoFade);
+                shell.addEventListener('transitionend', finish);
+                gridTimer = window.setTimeout(finish, 350);
+                mainContent.classList.add('sidebar-collapsed');
+            };
+
+            const onLogoFade = (event) => {
+                if (event.target === logo && event.propertyName === 'opacity') startGrid();
+            };
 
             if (!isCollapsed) {
                 // 展开 -> 收起
                 toggleIcon.textContent = '☰';
+                logo?.addEventListener('transitionend', onLogoFade);
+                logoFadeTimer = window.setTimeout(startGrid, 300);
                 mainContent.classList.add('sidebar-collapsing');
-                mainContent.classList.add('sidebar-collapsed');
             } else {
                 // 收起 -> 展开
                 toggleIcon.textContent = '❮';
+                shell.addEventListener('transitionend', finish);
+                gridTimer = window.setTimeout(finish, 350);
                 mainContent.classList.add('sidebar-expanding');
                 mainContent.classList.remove('sidebar-collapsed');
             }
@@ -771,6 +797,7 @@ function setCurrentPage(page) {
     const buttonPage = document.getElementById('buttonPage');
     const infoPage = document.getElementById('infoPage');
     const topbarControls = document.querySelector('.topbar-controls');
+    const infoControls = document.querySelector('.topbar-info-controls');
     const buttonSidebarNav = document.getElementById('sidebarNav');
     const infoSidebarNav = document.getElementById('infoSidebarNav');
     const buttonTab = document.getElementById('buttonTab');
@@ -779,6 +806,7 @@ function setCurrentPage(page) {
     if (buttonPage) buttonPage.hidden = !isButtonPage;
     if (infoPage) infoPage.hidden = isButtonPage;
     if (topbarControls) topbarControls.style.display = isButtonPage ? '' : 'none';
+    if (infoControls) infoControls.hidden = isButtonPage;
     if (buttonSidebarNav) buttonSidebarNav.hidden = !isButtonPage;
     if (infoSidebarNav) infoSidebarNav.hidden = isButtonPage;
 
@@ -822,7 +850,7 @@ async function init() {
         if (state.isLocalMode) {
             // 本地模式，直接使用本地路径
             console.log('使用本地文件模式');
-            audioBaseUrl = './public/voices/';
+            audioBaseUrl = './generated/voices/';
             startAudioLoading();
         } else if (state.isSingleCdnMode) {
             // 只有一个CDN，直接使用
@@ -861,7 +889,7 @@ async function init() {
         } else {
             // 回退到本地模式
             state.isLocalMode = true;
-            audioBaseUrl = 'public/voices/';
+            audioBaseUrl = 'generated/voices/';
             startAudioLoading();
         }
     }

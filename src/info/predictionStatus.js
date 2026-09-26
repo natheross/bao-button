@@ -3,6 +3,7 @@ import { infoApiUrl, fetchJson } from './api.js';
 const PREDICTION_URL = infoApiUrl('/api/prediction');
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 const SVG_NS = 'http://www.w3.org/2000/svg';
+let chartResizeObserver;
 
 function shortTime(value) {
     const date = new Date(value);
@@ -71,13 +72,11 @@ function predictionTooltipContent(point, probability) {
     return content;
 }
 
-function predictionChart(points, levels) {
-    const width = 760;
-    const height = 320;
+function predictionChart(points, levels, width = 760, height = 320) {
     const left = 56;
     const right = 18;
     const top = 18;
-    const bottom = 272;
+    const bottom = height - 48;
     const values = points.map(point => Number(point.probability));
     const ceiling = Math.min(1, Math.max(0.4, Math.ceil(Math.max(...values) * 10) / 10));
     const x = index => left + index * (width - left - right) / (points.length - 1);
@@ -110,16 +109,48 @@ function predictionChart(points, levels) {
         popover.style.setProperty('--prediction-arrow-offset', `${pointX - center}px`);
     };
     const stepWidth = (width - left - right) / (points.length - 1);
+    const defs = svgElement('defs');
+    for (const level of ['medium', 'high']) {
+        const pattern = svgElement('pattern', {
+            id: `prediction-hatch-${level}`, width: 8, height: 8,
+            patternUnits: 'userSpaceOnUse',
+        });
+        pattern.appendChild(svgElement('path', {
+            d: 'M-2,2 L2,-2 M0,8 L8,0 M6,10 L10,6',
+            class: `prediction-hatch prediction-risk-${level}`,
+        }));
+        defs.appendChild(pattern);
+    }
+    svg.appendChild(defs);
+    // 同等级的连续时段合为一个区域，只在区域两端画边界。
     for (let index = 0; index < points.length; index++) {
         const level = points[index].level;
         if (level !== 'medium' && level !== 'high') continue;
-        svg.appendChild(svgElement('rect', {
-            x: Math.max(left, x(index) - stepWidth / 2),
-            y: top,
-            width: Math.min(width - right, x(index) + stepWidth / 2)
-                - Math.max(left, x(index) - stepWidth / 2),
-            height: bottom - top,
-            class: `prediction-band prediction-band-${level}`,
+        const start = index;
+        while (index + 1 < points.length && points[index + 1].level === level) index++;
+        const startX = Math.max(left, x(start) - stepWidth / 2);
+        const endX = Math.min(width - right, x(index) + stepWidth / 2);
+        const rect = { x: startX, y: top, width: endX - startX, height: bottom - top };
+        svg.append(
+            svgElement('rect', { ...rect, class: `prediction-band-${level}` }),
+            svgElement('rect', { ...rect, fill: `url(#prediction-hatch-${level})` }),
+            svgElement('path', {
+                d: `M${startX},${top} V${bottom} M${endX},${top} V${bottom}`,
+                class: `prediction-risk-boundary prediction-risk-${level}`,
+            }),
+        );
+    }
+    // 北京时间的整点、半点；不随预测起点（例如 10:20）偏移。
+    const halfHour = 30 * 60_000;
+    const times = points.map(point => Date.parse(point.time));
+    for (let time = Math.ceil(times[0] / halfHour) * halfHour; time <= times.at(-1); time += halfHour) {
+        const next = times.findIndex(value => value >= time);
+        const previous = Math.max(0, next - 1);
+        const position = next === previous ? x(next)
+            : x(previous) + (x(next) - x(previous)) * (time - times[previous]) / (times[next] - times[previous]);
+        svg.appendChild(svgElement('line', {
+            x1: position, x2: position, y1: top, y2: bottom,
+            class: 'prediction-gridline prediction-time-gridline',
         }));
     }
     const ticks = [...new Set([0, levels.medium, levels.high, ceiling])].sort((a, b) => a - b);
@@ -144,7 +175,7 @@ function predictionChart(points, levels) {
         const point = points[index];
         const marker = svgElement('g', { class: 'prediction-point' });
         const circle = svgElement('circle', {
-            cx: x(index), cy: y(values[index]), r: 3.5,
+            cx: x(index), cy: y(values[index]), r: 5,
             class: 'prediction-dot',
         });
         const hitArea = svgElement('circle', {
@@ -176,6 +207,7 @@ function predictionChart(points, levels) {
 export async function renderPrediction() {
     const container = document.getElementById('predictionContent');
     if (!container) return;
+    chartResizeObserver?.disconnect();
     container.textContent = '正在读取预测...';
     try {
         const data = await fetchJson(PREDICTION_URL, '预测');
@@ -191,14 +223,33 @@ export async function renderPrediction() {
         const layout = document.createElement('div');
         layout.className = 'prediction-layout';
         const chartPanel = document.createElement('div');
-        chartPanel.className = 'prediction-panel';
+        chartPanel.className = 'prediction-panel prediction-chart-panel';
         const chartHeading = document.createElement('h2');
         chartHeading.className = 'info-subheading';
         chartHeading.textContent = '未来两小时内开播概率';
+        const chartHeader = document.createElement('div');
+        chartHeader.className = 'prediction-chart-header';
+        const legend = document.createElement('div');
+        legend.className = 'prediction-legend';
+        for (const [level, text] of [
+            ['medium', '中危险 此时段突击概率稍高'],
+            ['high', '高危险 此时段突击概率较高'],
+        ]) {
+            const item = document.createElement('span');
+            item.className = 'prediction-legend-item';
+            const swatch = document.createElement('span');
+            swatch.className = `prediction-legend-swatch prediction-risk-${level}`;
+            swatch.setAttribute('aria-hidden', 'true');
+            item.append(swatch, text);
+            legend.appendChild(item);
+        }
+        chartHeader.append(chartHeading, legend);
         const chartNote = document.createElement('p');
         chartNote.className = 'prediction-chart-note';
         chartNote.textContent = '节假日附近等宝煲空闲时间陡增的情况会出现较大偏差';
-        chartPanel.append(chartHeading, predictionChart(points, levels), chartNote);
+        const chartHost = document.createElement('div');
+        chartHost.className = 'prediction-chart-host';
+        chartPanel.append(chartHeader, chartHost, chartNote);
         layout.appendChild(chartPanel);
         if (Array.isArray(data.weeklyPatterns?.patterns) && data.weeklyPatterns.patterns.length) {
             const historyPanel = document.createElement('div');
@@ -229,6 +280,14 @@ export async function renderPrediction() {
             layout.appendChild(historyPanel);
         }
         container.replaceChildren(layout);
+        // 图表跟随卡片可用空间绘制，避免宽屏下按固定宽高比把整行撑高。
+        chartResizeObserver = new ResizeObserver(([entry]) => {
+            const { width, height } = entry.contentRect;
+            if (width > 0 && height > 0) {
+                chartHost.replaceChildren(predictionChart(points, levels, width, height));
+            }
+        });
+        chartResizeObserver.observe(chartHost);
         return true;
     } catch (error) {
         console.error(error);

@@ -74,7 +74,7 @@ export function ingredientPosition(index, count, kind) {
     const rows = Math.ceil(count / 10);
     const tomato = kind === 'tomato';
     const top = (tomato ? 64 : 0) + (rows === 1
-        ? (tomato ? 6 : 6)
+        ? 6
         : row * (tomato ? 8 : 16) / (rows - 1));
     const depth = (top + (tomato ? 30 : 29)) / BOARD.height;
     const width = (tomato ? 70 + 3 * depth : 58 + 2 * depth) * 1.3;

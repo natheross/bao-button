@@ -20,6 +20,7 @@ let nextPredictionReadAt = 0;
 let edInFlight = false;
 let nextEdReadAt = 0;
 let refreshQueued = false;
+let manualRefreshInFlight = false;
 
 function nearViewport(element) {
     const bounds = element.getBoundingClientRect();
@@ -34,7 +35,7 @@ function stopScPolling() {
 }
 
 function refreshSc() {
-    if (scInFlight || !active || document.hidden) return;
+    if (scInFlight || manualRefreshInFlight || !active || document.hidden) return;
     scInFlight = true;
     renderScStatus().finally(() => { scInFlight = false; });
 }
@@ -49,7 +50,7 @@ function refreshVisibleSections() {
         scTimer = window.setInterval(refreshSc, 3 * 60_000);
     }
     const prediction = document.getElementById('predictionSection');
-    if (!predictionInFlight && Date.now() >= nextPredictionReadAt &&
+    if (!manualRefreshInFlight && !predictionInFlight && Date.now() >= nextPredictionReadAt &&
         prediction && nearViewport(prediction)) {
         predictionInFlight = true;
         renderPrediction().then(success => {
@@ -57,17 +58,19 @@ function refreshVisibleSections() {
         }).finally(() => { predictionInFlight = false; });
     }
     const ed = document.getElementById('edSection');
-    if (!edInFlight && Date.now() >= nextEdReadAt && ed && nearViewport(ed)) {
+    if (!manualRefreshInFlight && !edInFlight && Date.now() >= nextEdReadAt && ed && nearViewport(ed)) {
         edInFlight = true;
         renderEdStatus().then(success => {
             nextEdReadAt = success ? Infinity : Date.now() + 60_000;
         }).finally(() => { edInFlight = false; });
     }
 
+    const scrollTop = document.getElementById('contentScroll')?.getBoundingClientRect().top ?? 0;
+    const activationLine = scrollTop + 140;
     let current = sections[0].id;
     for (const section of sections) {
         const element = document.getElementById(section.id);
-        if (element && element.getBoundingClientRect().top <= window.innerHeight * 0.3) {
+        if (element && element.getBoundingClientRect().top <= activationLine) {
             current = section.id;
         }
     }
@@ -83,6 +86,32 @@ function queueRefresh() {
         refreshQueued = false;
         refreshVisibleSections();
     });
+}
+
+async function refreshInfoPage() {
+    if (manualRefreshInFlight) return;
+    manualRefreshInFlight = true;
+    const button = document.getElementById('refreshInfo');
+    if (button) {
+        button.disabled = true;
+        button.querySelector('span').textContent = '刷新中…';
+    }
+    try {
+        const results = await Promise.allSettled([
+            renderCurrentStatus(),
+            renderScStatus(),
+            renderPrediction(),
+            renderEdStatus({ force: true }),
+        ]);
+        nextPredictionReadAt = Date.now() + (results[2].status === 'fulfilled' && results[2].value ? 10 : 1) * 60_000;
+        nextEdReadAt = results[3].status === 'fulfilled' && results[3].value ? Infinity : Date.now() + 60_000;
+    } finally {
+        manualRefreshInFlight = false;
+        if (button) {
+            button.disabled = false;
+            button.querySelector('span').textContent = '刷新情报';
+        }
+    }
 }
 
 export function setInfoPageActive(value) {
@@ -103,7 +132,16 @@ export function initInfoPage() {
             button.type = 'button';
             button.className = 'sidebar-item';
             button.dataset.infoSection = section.id;
-            button.textContent = section.label;
+            const [iconText, labelText] = section.label.split('　', 2);
+            const icon = document.createElement('span');
+            icon.className = 'sidebar-item-icon';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.textContent = iconText;
+            const label = document.createElement('span');
+            label.className = 'sidebar-item-label';
+            label.textContent = labelText;
+            button.setAttribute('aria-label', labelText);
+            button.append(icon, label);
             button.addEventListener('click', () => {
                 document.getElementById(section.id)?.scrollIntoView({
                     behavior: 'smooth', block: 'start',
@@ -114,17 +152,29 @@ export function initInfoPage() {
     }
 
     document.getElementById('edDateFilter')?.addEventListener('input', updateEdResults);
+    const dateMenu = document.getElementById('edDateMenu');
+    document.addEventListener('click', event => {
+        if (dateMenu?.open && !dateMenu.contains(event.target)) dateMenu.open = false;
+    });
+    dateMenu?.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            dateMenu.open = false;
+            dateMenu.querySelector('summary').focus();
+        }
+    });
     document.getElementById('edKeywordFilter')?.addEventListener('input', updateEdResults);
     document.getElementById('edClearFilters')?.addEventListener('click', () => {
         const date = document.getElementById('edDateFilter');
         const search = document.getElementById('edKeywordFilter');
         if (date) date.value = '';
+        if (dateMenu) dateMenu.open = false;
         if (search) search.value = '';
         updateEdResults();
     });
     document.getElementById('memeExpand')?.addEventListener('click', event => {
         setMemeGalleryExpanded(event.currentTarget.getAttribute('aria-expanded') !== 'true');
     });
+    document.getElementById('refreshInfo')?.addEventListener('click', refreshInfoPage);
 
     document.addEventListener('scroll', queueRefresh, { capture: true, passive: true });
     window.addEventListener('resize', queueRefresh, { passive: true });

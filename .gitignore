@@ -1,7 +1,6 @@
 node_modules/
 .npm-cache/
 .vscode/
-package.json
-package-lock.json
-scripts/
-test/
+generated/
+site-output/
+.content-build-*/

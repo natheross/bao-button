@@ -1,6 +1,14 @@
 import { infoApiUrl, fetchJson } from './api.js';
 
 const CURRENT_URL = infoApiUrl('/api/current');
+const STATUS_IMAGES = new URL('../../public/current-status/', import.meta.url);
+const THREE_DAYS_MS = 3 * 24 * 60 * 60_000;
+
+const MOODS = {
+    live: { image: '哇塞.png', label: '哇塞' },
+    recent: { image: '低落.png', label: '低落', note: '想王姐了…' },
+    overdue: { image: '委屈.png', label: '委屈', note: '王姐不要垫饭煲了；；' },
+};
 
 function formatTimeAgo(value) {
     if (!value) return '暂无';
@@ -43,6 +51,30 @@ function createStatusItem(key, label, value) {
     return item;
 }
 
+function createLastSeenItem(liveStatus, lastSeenAt) {
+    const item = createStatusItem('last-seen', '距离上次出现',
+        liveStatus === 'live' ? '正在直播' : formatTimeAgo(lastSeenAt));
+    const seenTime = lastSeenAt ? Date.parse(lastSeenAt) : NaN;
+    const mood = liveStatus === 'live' ? MOODS.live
+        : !Number.isFinite(seenTime) ? null
+            : Date.now() - seenTime <= THREE_DAYS_MS ? MOODS.recent : MOODS.overdue;
+    if (!mood) return item;
+
+    if (mood.note) {
+        const note = document.createElement('span');
+        note.className = 'current-status-note';
+        note.textContent = mood.note;
+        item.appendChild(note);
+    }
+    const image = document.createElement('img');
+    image.className = 'current-status-mood';
+    image.src = new URL(mood.image, STATUS_IMAGES).href;
+    image.alt = mood.label;
+    image.decoding = 'async';
+    item.appendChild(image);
+    return item;
+}
+
 export async function renderCurrentStatus() {
     const container = document.getElementById('currentStatusContent');
     if (!container) return;
@@ -56,10 +88,6 @@ export async function renderCurrentStatus() {
         const liveText = {
             live: '正在直播', offline: '未开播', round: '轮播', unknown: '状态未知'
         }[live.status] || '状态未知';
-        const lastSeenText = live.status === 'live'
-            ? '正在直播'
-            : formatTimeAgo(data.lastSeenAt);
-
         container.classList.remove('current-status-grid--loading', 'current-status-grid--offline');
         container.replaceChildren(
             createStatusItem('followers', '粉丝量', formatCount(data.followers)),
@@ -67,7 +95,7 @@ export async function renderCurrentStatus() {
             createStatusItem('status', '当前', liveText),
             createStatusItem('streams', '本月直播次数', formatCountWithUnit(data.streamsThisMonth, '次')),
             createStatusItem('last-started', '上次开播时间', formatDateTime(live.lastStartedAt)),
-            createStatusItem('last-seen', '距离上次出现', lastSeenText),
+            createLastSeenItem(live.status, data.lastSeenAt),
             createStatusItem('uploads', '本月已投稿', formatCountWithUnit(data.uploadsThisMonth, '个')),
             createStatusItem('golden', '本月累计黄金舰长', data.goldenScThisMonth == null
                 ? '10 月 1 日开始统计' : formatCountWithUnit(data.goldenScThisMonth, '个'))

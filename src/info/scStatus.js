@@ -10,7 +10,7 @@ let selectedSessionId = null;
 let controlsBound = false;
 
 function positionKitchenLayers() {
-    const frame = document.querySelector('.kitchen-frame');
+    const frame = document.querySelector('.kitchen-scene');
     const board = document.getElementById('kitchenBoard');
     const dish = document.getElementById('kitchenDish');
     const scallions = document.getElementById('kitchenScallions');
@@ -35,7 +35,7 @@ function positionKitchenLayers() {
 
 function watchKitchenSize() {
     if (kitchenResizeBound) return;
-    const frame = document.querySelector('.kitchen-frame');
+    const frame = document.querySelector('.kitchen-scene');
     if (!frame) return;
     kitchenResizeBound = true;
     if (typeof ResizeObserver !== 'undefined') {

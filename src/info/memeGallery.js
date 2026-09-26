@@ -1,8 +1,8 @@
 import { fetchJson } from './api.js';
 
-const MANIFEST_URL = new URL('../../public/data/memes.json', import.meta.url);
-const MEME_DIR = new URL('../../public/memes/', import.meta.url);
-const THUMB_DIR = new URL('../../public/memes/thumbs/', import.meta.url);
+const MANIFEST_URL = new URL('../../generated/memes.json', import.meta.url);
+const MEME_DIR = new URL('../../generated/memes/', import.meta.url);
+const THUMB_DIR = new URL('../../generated/memes/thumbs/', import.meta.url);
 const IMAGE_NAME = /^[^/\\]+\.(?:png|jpe?g|gif|webp|avif)$/i;
 const THUMB_NAME = /^[^/\\]+\.webp$/i;
 const BATCH_SIZE = 24;
