@@ -60,15 +60,18 @@
                 <div class="topbar">
                     <div class="topbar-tabs" role="tablist" aria-label="一级页面">
                         <button class="topbar-tab active" id="buttonTab" type="button" role="tab"
-                            aria-selected="true" aria-controls="buttonPage">煲按钮</button>
+                            aria-selected="true" aria-controls="buttonPage">煲按钮<span class="topbar-tab-english" lang="en" aria-hidden="true">BUTTONS</span></button>
                         <button class="topbar-tab" id="infoTab" type="button" role="tab"
-                            aria-selected="false" aria-controls="infoPage">煲情报</button>
+                            aria-selected="false" aria-controls="infoPage">煲情报<span class="topbar-tab-english" lang="en" aria-hidden="true">INFORMATION</span></button>
                     </div>
                     <div class="topbar-controls controls">
-                        <button id="randomPlay">随机播放</button>
-                        <button id="stopAll">停止所有</button>
+                        <button id="randomPlay"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h3c4 0 6 12 10 12h3M16 14l4 4-4 4M4 18h3c1.5 0 2.7-1.7 4-4M13 10c1.3-2.3 2.5-4 4-4h3M16 2l4 4-4 4"/></svg><span>随机播放</span></button>
+                        <button id="stopAll"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="5" width="14" height="14" rx="2"/></svg><span>停止所有</span></button>
                         <label><input type="checkbox" id="loopMode"> 洗脑循环</label>
                         <button id="changeCdn" class="cdn-change-btn">更换音频源</button>
+                    </div>
+                    <div class="topbar-info-controls controls" hidden>
+                        <button id="refreshInfo" type="button"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 10a8 8 0 1 0-2 8M20 4v6h-6"/></svg><span>刷新情报</span></button>
                     </div>
                 </div>
             </div>
@@ -149,18 +152,83 @@
                         </div>
 
                         <section id="infoPage" hidden>
+                            <div class="info-overview">
+                                <section id="currentStatusSection" class="info-section">
+                                    <h1>目前数据</h1>
+                                    <div id="currentStatusContent" class="current-status-grid">
+                                    </div>
+                                </section>
 
-                            <section
-                                id="currentStatusSection"
-                                class="info-section"
-                            >
-                                <h1>目前数据</h1>
+                                <div class="info-overview-side">
+                                    <section id="edSection" class="info-section">
+                                        <h1>ED 记录</h1>
+                                        <div class="ed-filters" role="search" aria-label="筛选 ED 记录">
+                                            <div class="ed-date-control">
+                                                <label for="edDateFilter">日期</label>
+                                                <div class="ed-date-field">
+                                                    <input id="edDateFilter" type="search" inputmode="numeric" placeholder="输入日期数字">
+                                                    <details id="edDateMenu">
+                                                        <summary aria-label="选择 ED 日期">▾</summary>
+                                                        <div id="edDateOptions"></div>
+                                                    </details>
+                                                </div>
+                                            </div>
+                                            <label>歌名或歌手
+                                                <input id="edKeywordFilter" type="search" placeholder="输入关键字">
+                                            </label>
+                                            <button id="edClearFilters" class="info-refresh" type="button">清除筛选</button>
+                                        </div>
+                                        <div id="edContent" class="info-cards ed-results" role="region"
+                                            aria-label="ED 查询结果" tabindex="0"></div>
+                                    </section>
 
-                                <div
-                                    id="currentStatusContent"
-                                    class="current-status-grid"
-                                >
+                                    <section id="memeSection" class="info-section">
+                                        <button id="memeExpand" class="meme-capsule" type="button"
+                                            aria-expanded="false" aria-controls="memeContent"
+                                            aria-label="展开表情包分享库">表情包分享库
+                                            <span class="meme-capsule-icon" aria-hidden="true">
+                                                <span class="meme-capsule-lines"><span></span><span></span><span></span></span>
+                                                <span class="meme-capsule-arrow"></span>
+                                            </span>
+                                        </button>
+                                    </section>
                                 </div>
+                                <div id="memeContent" class="meme-expanded-content"></div>
+                            </div>
+
+                            <section id="scSection" class="info-section kitchen-section">
+                                <h1>垫饭煲厨房</h1>
+                                <div class="kitchen-frame">
+                                    <div class="kitchen-scene">
+                                        <div class="kitchen-session">
+                                            <div id="kitchenSessionTime" class="kitchen-session-time"></div>
+                                            <div class="kitchen-session-nav">
+                                                <button id="kitchenPrevious" type="button">前一场直播</button>
+                                                <button id="kitchenNext" type="button">后一场直播</button>
+                                            </div>
+                                        </div>
+                                        <div class="kitchen-fish-area">
+                                            <img id="kitchenFishbowl" class="kitchen-fishbowl" alt="" hidden>
+                                            <div id="kitchenCoinCount" class="kitchen-count kitchen-count--coin" hidden></div>
+                                        </div>
+                                        <div id="kitchenSeasoningCount" class="kitchen-count kitchen-count--seasoning" hidden></div>
+                                        <div id="kitchenBoard" class="kitchen-board" aria-hidden="true">
+                                            <div id="kitchenEggCount" class="kitchen-count kitchen-count--egg" hidden></div>
+                                            <div id="kitchenEggs" class="kitchen-board-zone kitchen-board-zone--eggs"></div>
+                                            <div id="kitchenTomatoes" class="kitchen-board-zone kitchen-board-zone--tomatoes"></div>
+                                            <div id="kitchenTomatoCount" class="kitchen-count kitchen-count--tomato" hidden></div>
+                                        </div>
+                                        <img id="kitchenDish" class="kitchen-dish" alt="" decoding="async" loading="lazy" hidden>
+                                        <img id="kitchenScallions" class="kitchen-scallions" alt="" decoding="async" loading="lazy" hidden>
+                                        <div id="scContent" class="kitchen-message" role="status"></div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section id="predictionSection" class="info-section">
+                                <h1>宝煲行为学</h1>
+                                <p class="prediction-disclaimer">图一乐预测，饼学大厦唯一真理是自由的宝煲不可预测</p>
+                                <div id="predictionContent" class="info-cards"></div>
                             </section>
 
                         </section>

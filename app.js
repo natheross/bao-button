@@ -1,26 +1,24 @@
 // ES模块版本
-import { zhLocale } from './src/locales/zh.js';
-import { voices } from './src/config/voices.js';
+import { zhLocale, voices } from './generated/content.js';
 import { CDN_CONFIGS } from './src/config/cdns.js';
 import { otherbutton, otherbuttonRemote } from './src/config/otherbutton.js';
-import { initInfoPage } from './src/ui/infoPage.js';
+import { initInfoPage, setInfoPageActive } from './src/ui/infoPage.js';
+import { safeExternalUrl } from './src/ui/externalLinks.js';
+import { getAudioFromCache, saveAudioToCache, cleanupOldCache,
+    getSelectedCdn, saveSelectedCdn } from './src/audio/storage.js';
+import { preloadInBatches } from './src/audio/preload.js';
 
-const CONCURRENCY_MIX = 5
-let AUIDO_URL = ""
-let currentPage = 'buttons'
+let audioBaseUrl = '';
+let currentPage = 'buttons';
+let eventsBound = false;
+let unbindScrollSpy = null;
 
 // 全局状态
 const state = {
-    currentLang: 'zh',
     isLoopMode: false,
     playingAudios: new Map(), // 存储正在播放的音频及其循环状态
     audioCache: new Map(), // 内存缓存已加载的音频Blob
     voices: [],
-    locales: {
-        zh: zhLocale,
-        en: zhLocale, // 暂时使用中文，可后续添加英文
-        ja: zhLocale  // 暂时使用中文，可后续添加日文
-    },
     totalToLoad: 0,
     loadedCount: 0,
     otherButtons: otherbutton,
@@ -30,144 +28,33 @@ const state = {
     isLocalMode: !CDN_CONFIGS || CDN_CONFIGS.length === 0 // 判断是否本地模式
 };
 
-// IndexedDB数据库配置
-const DB_NAME = 'MaiButtonDB';
-const DB_VERSION = 2; // 更新版本号以支持CDN存储
-const STORE_NAME = 'audioCache';
-const CDN_STORE_NAME = 'cdnSettings'; // 新增：CDN设置存储
-
-// 初始化IndexedDB
-async function initDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-
-            // 创建音频缓存存储
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME, { keyPath: 'path' });
-            }
-
-            // 仅在非本地模式下创建CDN设置存储
-            if (!state.isLocalMode && !db.objectStoreNames.contains(CDN_STORE_NAME)) {
-                const cdnStore = db.createObjectStore(CDN_STORE_NAME, { keyPath: 'id' });
-                cdnStore.createIndex('selected', 'selected', { unique: false });
-            }
-        };
-    });
-}
-
-// 保存选中的CDN到IndexedDB
-async function saveSelectedCdn(cdnId) {
-    // 本地模式不需要保存CDN设置
-    if (state.isLocalMode) return Promise.resolve(null);
-
-    try {
-        const db = await initDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([CDN_STORE_NAME], 'readwrite');
-            const store = transaction.objectStore(CDN_STORE_NAME);
-
-            // 先获取所有记录
-            const getAllRequest = store.getAll();
-
-            getAllRequest.onsuccess = () => {
-                const records = getAllRequest.result;
-
-                // 清除所有选中状态
-                const updatePromises = records.map(record => {
-                    if (record.selected) {
-                        record.selected = false;
-                        return store.put(record);
-                    }
-                    return null;
-                }).filter(p => p !== null);
-
-                // 等待所有更新完成
-                Promise.all(updatePromises.map(p =>
-                    new Promise((res, rej) => {
-                        p.onsuccess = res;
-                        p.onerror = rej;
-                    })
-                )).then(() => {
-                    // 保存新的选中状态
-                    const cdn = state.availableCdns.find(c => c.id === cdnId);
-                    if (cdn) {
-                        const cdnData = {
-                            id: cdn.id,
-                            url: cdn.url,
-                            name: cdn.name,
-                            selected: true,
-                            timestamp: Date.now()
-                        };
-                        const request = store.put(cdnData);
-                        request.onsuccess = () => resolve(cdnData);
-                        request.onerror = () => reject(request.error);
-                    } else {
-                        resolve(null);
-                    }
-                });
-            };
-
-            getAllRequest.onerror = () => reject(getAllRequest.error);
-        });
-    } catch (error) {
-        console.warn('保存CDN设置失败:', error);
-        return null;
-    }
-}
-
-// 从IndexedDB获取选中的CDN
-async function getSelectedCdn() {
-    // 本地模式不需要获取CDN设置
-    if (state.isLocalMode) return Promise.resolve(null);
-
-    try {
-        const db = await initDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([CDN_STORE_NAME], 'readonly');
-            const store = transaction.objectStore(CDN_STORE_NAME);
-
-            // 获取所有记录，然后在内存中筛选
-            const request = store.getAll();
-
-            request.onsuccess = () => {
-                const selectedCdn = request.result.find(cdn => cdn.selected === true);
-                resolve(selectedCdn || null);
-            };
-
-            request.onerror = () => reject(request.error);
-        });
-    } catch (error) {
-        console.warn('获取CDN设置失败:', error);
-        return null;
-    }
-}
-
 // 渲染CDN选择界面
 function renderCdnOptions() {
     const container = document.getElementById('cdnOptions');
     if (!container) return;
 
-    container.innerHTML = '';
+    container.replaceChildren();
 
     state.availableCdns.forEach(cdn => {
         const optionElement = document.createElement('div');
         optionElement.className = 'cdn-option';
         optionElement.dataset.cdnId = cdn.id;
 
-        optionElement.innerHTML = `
-            <div class="cdn-option-header">
-                <h3>${cdn.name}</h3>
-                <span class="cdn-priority">优先级: ${cdn.priority}</span>
-            </div>
-            <div class="cdn-option-url">${cdn.url}</div>
-            <div class="cdn-option-desc">${cdn.description}</div>
-        `;
+        const header = document.createElement('div');
+        header.className = 'cdn-option-header';
+        const name = document.createElement('h3');
+        name.textContent = cdn.name;
+        const priority = document.createElement('span');
+        priority.className = 'cdn-priority';
+        priority.textContent = `优先级: ${cdn.priority}`;
+        header.append(name, priority);
+        const url = document.createElement('div');
+        url.className = 'cdn-option-url';
+        url.textContent = cdn.url;
+        const description = document.createElement('div');
+        description.className = 'cdn-option-desc';
+        description.textContent = cdn.description;
+        optionElement.append(header, url, description);
 
         optionElement.addEventListener('click', () => {
             selectCdn(cdn.id);
@@ -182,6 +69,7 @@ async function selectCdn(cdnId) {
     const cdn = state.availableCdns.find(c => c.id === cdnId);
     if (!cdn) return;
 
+    if (audioBaseUrl !== cdn.url) state.audioCache.clear();
     // 更新选中状态
     state.selectedCdn = cdn;
 
@@ -190,11 +78,11 @@ async function selectCdn(cdnId) {
     const remember = rememberCheckbox ? rememberCheckbox.checked : true;
 
     if (remember && !state.isLocalMode) {
-        await saveSelectedCdn(cdnId);
+        await saveSelectedCdn(cdn);
     }
 
     // 设置音频URL
-    AUIDO_URL = cdn.url;
+    audioBaseUrl = cdn.url;
 
     // 隐藏CDN选择界面，显示加载界面
     const cdnSelectScreen = document.getElementById('cdnSelectScreen');
@@ -206,116 +94,25 @@ async function selectCdn(cdnId) {
     startAudioLoading();
 }
 
-// 从IndexedDB获取音频
-async function getAudioFromCache(path) {
-    try {
-        const db = await initDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.get(path);
-
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
-    } catch (error) {
-        console.warn('从缓存获取音频失败:', error);
-        return null;
-    }
-}
-
-// 保存音频到IndexedDB
-async function saveAudioToCache(path, blob) {
-    try {
-        const db = await initDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], 'readwrite');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.put({
-                path,
-                blob,
-                timestamp: Date.now(),
-                cdnUrl: state.selectedCdn ? state.selectedCdn.url : AUIDO_URL // 记录CDN信息
-            });
-
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-        });
-    } catch (error) {
-        console.warn('保存音频到缓存失败:', error);
-    }
-}
-
-// 清理旧的缓存（超过30天）
-async function cleanupOldCache() {
-    try {
-        const db = await initDB();
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.getAll();
-
-        request.onsuccess = () => {
-            const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-            const currentCdnUrl = AUIDO_URL;
-
-            request.result.forEach(item => {
-                // 清理超过30天的缓存，以及不属于当前CDN的缓存
-                if (item.timestamp < thirtyDaysAgo ||
-                    (item.cdnUrl && item.cdnUrl !== currentCdnUrl)) {
-                    store.delete(item.path);
-                }
-            });
-        };
-    } catch (error) {
-        console.warn('清理缓存失败:', error);
-    }
-}
-
-// 预加载音频
-async function preloadAudio(voice, updateProgress) {
+// Load data independently of the progress UI.
+async function preloadAudio(voice, signal) {
     const path = voice.path;
-
-    // 先检查内存缓存
-    if (state.audioCache.has(path)) {
-        state.loadedCount++;
-        updateProgress();
-        return Promise.resolve();
-    }
-
-    // 检查IndexedDB缓存
+    const sourceUrl = audioBaseUrl;
+    if (state.audioCache.has(path)) return;
     const cached = await getAudioFromCache(path);
-    if (cached && cached.blob) {
+    if (signal.aborted || sourceUrl !== audioBaseUrl) return;
+    if (cached?.blob && cached.cdnUrl === sourceUrl) {
         state.audioCache.set(path, cached.blob);
-        state.loadedCount++;
-        updateProgress();
-        return Promise.resolve();
+        return;
     }
-
-    // 从网络加载
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', `${AUIDO_URL}${path}`, true);
-        xhr.responseType = 'blob';
-
-        xhr.onload = async () => {
-            if (xhr.status === 200) {
-                const blob = xhr.response;
-                state.audioCache.set(path, blob);
-
-                // 异步保存到IndexedDB
-                saveAudioToCache(path, blob);
-
-                state.loadedCount++;
-                updateProgress();
-                resolve();
-            } else {
-                reject(new Error(`加载失败: ${path}`));
-            }
-        };
-
-        xhr.onerror = () => reject(new Error(`网络错误: ${path}`));
-        xhr.send();
+    const response = await fetch(sourceUrl + path, {
+        signal: AbortSignal.any([signal, AbortSignal.timeout(12_000)]),
     });
+    if (!response.ok) throw new Error(`加载失败: ${path}`);
+    const blob = await response.blob();
+    if (signal.aborted || sourceUrl !== audioBaseUrl) return;
+    state.audioCache.set(path, blob);
+    void saveAudioToCache(path, blob, sourceUrl);
 }
 
 // 更新加载进度
@@ -333,92 +130,45 @@ function updateProgress() {
     // 更新CDN信息显示
     if (loadingCdnInfo) {
         if (state.isLocalMode) {
-            loadingCdnInfo.textContent = '音频源: 本地文件 (public/voices/)';
+            loadingCdnInfo.textContent = '音频源: 本地文件';
         } else if (state.selectedCdn) {
             loadingCdnInfo.textContent = `音频源: ${state.selectedCdn.name}`;
         }
     }
 }
 
-// 批量预加载
-async function batchPreload(voices) {
+// Prepare audio, then mount the interface once on either success or failure.
+async function startAudioLoading() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) loadingScreen.style.display = 'flex';
+    state.voices = voices;
     state.totalToLoad = voices.length;
     state.loadedCount = 0;
-
-    // 更新进度显示
     updateProgress();
-
-    // 并行加载，但控制并发数
-    const CONCURRENCY = CONCURRENCY_MIX;
-    const batches = [];
-
-    for (let i = 0; i < voices.length; i += CONCURRENCY) {
-        const batch = voices.slice(i, i + CONCURRENCY);
-        const promises = batch.map(voice =>
-            preloadAudio(voice, updateProgress).catch(error => {
-                console.warn(`音频 ${voice.path} 预加载失败:`, error);
-                state.loadedCount++;
-                updateProgress();
-            })
-        );
-
-        batches.push(Promise.all(promises));
-    }
-
-    // 等待所有批次完成
-    for (const batch of batches) {
-        await batch;
-    }
-}
-
-// 开始音频加载（从原来的init函数中提取）
-async function startAudioLoading() {
+    const preloadController = new AbortController();
+    const preloadDeadline = window.setTimeout(() => preloadController.abort(), 45_000);
     try {
-        // 显示加载界面
-        const loadingScreen = document.getElementById('loadingScreen');
-        if (loadingScreen) {
-            loadingScreen.style.display = 'flex';
-        }
-
-        // 设置音频数据
-        state.voices = voices;
-
-        // 清理旧缓存
-        await cleanupOldCache();
-
-        // 预加载音频
-        await batchPreload(state.voices);
-
-        // 显示主界面
-        showMainContent();
-
-        // 渲染音频按钮
-        renderVoiceButtons();
-
-        // 绑定事件
-        bindEvents();
-
-        // 绑定 scroll-spy
-        bindScrollSpy();
-
-        loadRemoteOtherButtons();
-
-        console.log('初始化完成，已加载音频:', state.voices.length);
-        if (state.isLocalMode) {
-            console.log('使用本地文件模式');
-        } else if (state.selectedCdn) {
-            console.log('使用的CDN:', state.selectedCdn.name);
-        }
+        await Promise.race([(async () => {
+            await cleanupOldCache(audioBaseUrl);
+            if (!preloadController.signal.aborted) {
+                await preloadInBatches(voices, preloadAudio, () => {
+                    state.loadedCount++;
+                    updateProgress();
+                }, 5, preloadController.signal);
+            }
+        })(), new Promise(resolve => {
+            preloadController.signal.addEventListener('abort', resolve, { once: true });
+        })]);
     } catch (error) {
         console.error('初始化失败:', error);
-        // 即使预加载失败，也显示界面
-        showMainContent();
-        state.voices = voices;
-        renderVoiceButtons();
-        bindEvents();
-        bindScrollSpy();
-        loadRemoteOtherButtons();
+    } finally {
+        window.clearTimeout(preloadDeadline);
     }
+    showMainContent();
+    renderVoiceButtons();
+    bindEvents();
+    bindScrollSpy();
+    loadRemoteOtherButtons();
 }
 
 // 渲染音频按钮
@@ -444,7 +194,19 @@ function renderVoiceButtons() {
 
         // 渲染分类标题
         const tagName = getLocalizedTag(tag);
-        categoryElement.innerHTML = `<h2>${tagName}</h2><div class="voice-buttons"></div>`;
+        const heading = document.createElement('h2');
+        const headingParts = tagName.match(/^(\S+)\s+(.+)$/u);
+        if (headingParts) {
+            const icon = document.createElement('span');
+            icon.className = 'category-heading-icon';
+            icon.textContent = headingParts[1];
+            heading.append(icon, headingParts[2]);
+        } else {
+            heading.textContent = tagName;
+        }
+        const buttons = document.createElement('div');
+        buttons.className = 'voice-buttons';
+        categoryElement.append(heading, buttons);
 
         // 渲染按钮
         const buttonsContainer = categoryElement.querySelector('.voice-buttons');
@@ -480,24 +242,24 @@ function createVoiceButton(voice) {
     wrapper.dataset.path = voice.path;
 
     const title = getLocalizedVoiceTitle(voice);
-    let buttonHtml = '';
-
+    const button = document.createElement('button');
     // 如果标题过长，添加tooltip
     if (title.length > 15) {
-        buttonHtml = `
-            <div class="tooltip">
-                <button>${title.substring(0, 15)}...</button>
-                <span class="tooltip-text">${title}</span>
-            </div>
-        `;
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        button.textContent = `${title.substring(0, 15)}...`;
+        const fullTitle = document.createElement('span');
+        fullTitle.className = 'tooltip-text';
+        fullTitle.textContent = title;
+        tooltip.append(button, fullTitle);
+        wrapper.appendChild(tooltip);
     } else {
-        buttonHtml = `<button>${title}</button>`;
+        button.textContent = title;
+        wrapper.appendChild(button);
     }
 
-    wrapper.innerHTML = buttonHtml;
-
     // 添加点击事件
-    wrapper.querySelector('button').addEventListener('click', () => {
+    button.addEventListener('click', () => {
         playVoice(voice);
     });
 
@@ -605,6 +367,7 @@ function keepSidebarItemInView(item) {
 }
 
 function bindScrollSpy() {
+    unbindScrollSpy?.();
     const scroller = document.getElementById('contentScroll');
     if (!scroller) return;
 
@@ -618,7 +381,7 @@ function bindScrollSpy() {
 
     if (!sections.length || !sidebarItems.length) return;
 
-    scroller.addEventListener('scroll', () => {
+    const onScroll = () => {
         const activationLine = scroller.getBoundingClientRect().top + 42;
         let currentTag = sections[0].dataset.tag;
 
@@ -640,19 +403,19 @@ function bindScrollSpy() {
             item.classList.toggle('active', isActive);
             if (isActive) keepSidebarItemInView(item);
         });
-    });
+    };
+    scroller.addEventListener('scroll', onScroll);
+    unbindScrollSpy = () => scroller.removeEventListener('scroll', onScroll);
 }
 
 function normalizeOtherButtonUrl(url) {
-    try {
-        const parsed = new URL(url);
-        parsed.hash = '';
-        parsed.search = '';
-        parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
-        return parsed.toString().replace(/\/$/, '');
-    } catch (error) {
-        return String(url || '').trim().replace(/\/$/, '');
-    }
+    const safeUrl = safeExternalUrl(url);
+    if (!safeUrl) return null;
+    const parsed = new URL(safeUrl);
+    parsed.hash = '';
+    parsed.search = '';
+    parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+    return parsed.toString().replace(/\/$/, '');
 }
 
 function buildOtherButtonRemoteUrl() {
@@ -735,6 +498,8 @@ function renderOtherButtonSection() {
 
     btnBox.innerHTML = '';
     state.otherButtons.forEach(item => {
+        const safeUrl = safeExternalUrl(item.url);
+        if (!safeUrl) return;
         const wrapper = document.createElement('div');
         wrapper.className = 'haruka-button';
 
@@ -750,7 +515,7 @@ function renderOtherButtonSection() {
         }
 
         btn.addEventListener('click', () => {
-            window.open(item.url, '_blank');
+            window.open(safeUrl, '_blank', 'noopener,noreferrer');
         });
 
         wrapper.appendChild(btn);
@@ -776,13 +541,12 @@ function renderOtherButton(container) {
 
 // 获取本地化的标签名
 function getLocalizedTag(tag) {
-    return state.locales[state.currentLang].tags[tag] || tag;
+    return zhLocale.tags[tag] || tag;
 }
 
 // 获取本地化的音频标题
 function getLocalizedVoiceTitle(voice) {
-    return voice.messages[state.currentLang] ||
-        voice.messages.zh ||
+    return voice.messages.zh ||
         Object.values(voice.messages)[0] ||
         '未知音频';
 }
@@ -797,12 +561,12 @@ async function playVoice(voice) {
     if (!blob) {
         // 如果内存中没有，尝试从IndexedDB加载
         const cached = await getAudioFromCache(path);
-        if (cached && cached.blob) {
+        if (cached?.blob && cached.cdnUrl === audioBaseUrl) {
             blob = cached.blob;
             state.audioCache.set(path, blob);
         } else {
             // 回退到直接加载
-            const audio = new Audio(`${AUIDO_URL}${path}`);
+            const audio = new Audio(`${audioBaseUrl}${path}`);
             playAudioElement(audio, voice);
             return;
         }
@@ -838,7 +602,6 @@ function playAudioElement(audio, voice, cleanupCallback) {
         audio: audio,
         path: voice.path,
         progressMask: progressMask,
-        voice: voice,
         cleanup: cleanupCallback
     });
 
@@ -918,6 +681,8 @@ function showCdnSelect() {
 
 // 绑定事件
 function bindEvents() {
+    if (eventsBound) return;
+    eventsBound = true;
     const buttonTab = document.getElementById('buttonTab');
     const infoTab = document.getElementById('infoTab');
 
@@ -960,7 +725,7 @@ function bindEvents() {
         }
     }
 
-    // Sidebar 折叠/展开（两阶段，避免文字闪现）
+    // 收起时先淡出 Logo，再缩窄侧边栏，避免图片被布局挤小后闪现。
     const sidebarToggle = document.getElementById('sidebarToggle');
     const mainContent = document.getElementById('mainContent');
 
@@ -973,26 +738,46 @@ function bindEvents() {
             mainContent.classList.add('sidebar-animating');
 
             const shell = mainContent.querySelector('.app-shell');
+            const logo = mainContent.querySelector('.sidebar-logo img');
+            let logoFadeTimer;
+            let gridTimer;
+            let gridStarted = false;
             const finish = (event) => {
                 if (event && (event.target !== shell || event.propertyName !== 'grid-template-columns')) return;
-                window.clearTimeout(fallback);
+                window.clearTimeout(logoFadeTimer);
+                window.clearTimeout(gridTimer);
+                logo?.removeEventListener('transitionend', onLogoFade);
                 shell.removeEventListener('transitionend', finish);
                 mainContent.classList.remove('sidebar-animating');
                 mainContent.classList.remove('sidebar-collapsing');
                 mainContent.classList.remove('sidebar-expanding');
             };
 
-            shell.addEventListener('transitionend', finish);
-            const fallback = window.setTimeout(finish, 350);
+            const startGrid = () => {
+                if (gridStarted) return;
+                gridStarted = true;
+                window.clearTimeout(logoFadeTimer);
+                logo?.removeEventListener('transitionend', onLogoFade);
+                shell.addEventListener('transitionend', finish);
+                gridTimer = window.setTimeout(finish, 350);
+                mainContent.classList.add('sidebar-collapsed');
+            };
+
+            const onLogoFade = (event) => {
+                if (event.target === logo && event.propertyName === 'opacity') startGrid();
+            };
 
             if (!isCollapsed) {
                 // 展开 -> 收起
                 toggleIcon.textContent = '☰';
+                logo?.addEventListener('transitionend', onLogoFade);
+                logoFadeTimer = window.setTimeout(startGrid, 300);
                 mainContent.classList.add('sidebar-collapsing');
-                mainContent.classList.add('sidebar-collapsed');
             } else {
                 // 收起 -> 展开
                 toggleIcon.textContent = '❮';
+                shell.addEventListener('transitionend', finish);
+                gridTimer = window.setTimeout(finish, 350);
                 mainContent.classList.add('sidebar-expanding');
                 mainContent.classList.remove('sidebar-collapsed');
             }
@@ -1012,6 +797,7 @@ function setCurrentPage(page) {
     const buttonPage = document.getElementById('buttonPage');
     const infoPage = document.getElementById('infoPage');
     const topbarControls = document.querySelector('.topbar-controls');
+    const infoControls = document.querySelector('.topbar-info-controls');
     const buttonSidebarNav = document.getElementById('sidebarNav');
     const infoSidebarNav = document.getElementById('infoSidebarNav');
     const buttonTab = document.getElementById('buttonTab');
@@ -1020,6 +806,7 @@ function setCurrentPage(page) {
     if (buttonPage) buttonPage.hidden = !isButtonPage;
     if (infoPage) infoPage.hidden = isButtonPage;
     if (topbarControls) topbarControls.style.display = isButtonPage ? '' : 'none';
+    if (infoControls) infoControls.hidden = isButtonPage;
     if (buttonSidebarNav) buttonSidebarNav.hidden = !isButtonPage;
     if (infoSidebarNav) infoSidebarNav.hidden = isButtonPage;
 
@@ -1036,7 +823,8 @@ function setCurrentPage(page) {
     restartPageAnimation(isButtonPage ? buttonPage : infoPage, 'page-fade-enter');
     restartPageAnimation(isButtonPage ? buttonSidebarNav : infoSidebarNav, 'page-fade-enter');
     if (isButtonPage) restartPageAnimation(topbarControls, 'page-fade-enter');
-    if (!isButtonPage) {initInfoPage();}
+    if (!isButtonPage) initInfoPage();
+    setInfoPageActive(!isButtonPage);
 }
 
 function restartPageAnimation(element, className) {
@@ -1062,14 +850,14 @@ async function init() {
         if (state.isLocalMode) {
             // 本地模式，直接使用本地路径
             console.log('使用本地文件模式');
-            AUIDO_URL = './public/voices/';
+            audioBaseUrl = './generated/voices/';
             startAudioLoading();
         } else if (state.isSingleCdnMode) {
             // 只有一个CDN，直接使用
             console.log('使用单CDN模式');
             const cdn = state.availableCdns[0];
             state.selectedCdn = cdn;
-            AUIDO_URL = cdn.url;
+            audioBaseUrl = cdn.url;
             startAudioLoading();
         } else {
             // 多个CDN，需要选择
@@ -1101,7 +889,7 @@ async function init() {
         } else {
             // 回退到本地模式
             state.isLocalMode = true;
-            AUIDO_URL = 'public/voices/';
+            audioBaseUrl = 'generated/voices/';
             startAudioLoading();
         }
     }
